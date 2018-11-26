@@ -21,9 +21,6 @@ typedef struct {
     int n;       /* total number of atoms in the chain */
     int m;       /* number read so far */
     double *r;   /* coordinate matrix (n x 3), row major order  */
-    double *x;
-    double *y;
-    double *z;
 } chain_t;
 
 char buf[BUFSIZ];
@@ -41,7 +38,54 @@ char *read_line(gzFile fp)
     return s;
 }
 
-int read_frame(gzFile fp, chain_t *chains, int nchains)
+void write_frame(gzFile fpo, chain_t *chains, int step, int nchains, int natoms, double *boxlo, double *boxhi)
+{
+    int i, j, id;
+    double x, y, z;
+
+
+    sprintf(buf, "ITEM: TIMESTEP\n");
+    gzputs(fpo, buf);
+
+    sprintf(buf, "%d\n", step);
+    gzputs(fpo, buf);
+
+    sprintf(buf, "ITEM: NUMBER OF ATOMS\n");
+    gzputs(fpo, buf);
+
+    sprintf(buf, "%d\n", natoms);
+    gzputs(fpo, buf);
+
+    sprintf(buf, "ITEM: BOX BOUNDS pp pp pp\n");
+    gzputs(fpo, buf);
+
+    sprintf(buf, "%-16.10lf %-16.10lf\n", boxlo[0], boxhi[0]);
+    gzputs(fpo, buf);
+
+    sprintf(buf, "%-16.10lf %-16.10lf\n", boxlo[1], boxhi[1]);
+    gzputs(fpo, buf);
+
+    sprintf(buf, "%-16.10lf %-16.10lf\n", boxlo[2], boxhi[2]);
+    gzputs(fpo, buf);
+
+    sprintf(buf, "ITEM: ATOMS id mol xu yu zu\n");
+    gzputs(fpo, buf);
+
+    id = 0;
+    for (i = 0; i < nchains; i++) {
+        for (j = 0; j < chains[i].n; j++) {
+            x = ARRAY2D(chains[i].r, j, 0, 3);
+            y = ARRAY2D(chains[i].r, j, 1, 3);
+            z = ARRAY2D(chains[i].r, j, 2, 3);
+            sprintf(buf, "%d %d %.6f %.6f %.6f\n", id+1, i+1, x, y, z);
+            gzputs(fpo, buf);
+            id++;
+        }
+    }
+
+}
+
+int read_frame(gzFile fp, chain_t *chains, int nchains, double *boxlo, double *boxhi)
 {
     int i, j;
     int step, natoms;
@@ -67,8 +111,11 @@ int read_frame(gzFile fp, chain_t *chains, int nchains)
     /* BOX BOUNDS pp pp pp */
     read_line(fp);
     read_line(fp);
+    sscanf(buf, "%lf %lf", &boxlo[0], &boxhi[0]);
     read_line(fp);
+    sscanf(buf, "%lf %lf", &boxlo[1], &boxhi[1]);
     read_line(fp);
+    sscanf(buf, "%lf %lf", &boxlo[2], &boxhi[2]);
 
     /* ATOMS id mol xu yu zu */
     read_line(fp);
@@ -81,9 +128,9 @@ int read_frame(gzFile fp, chain_t *chains, int nchains)
         assert(mol <= nchains);
         mol--;
         j = chains[mol].m;
-        chains[mol].x[j] = x;
-        chains[mol].y[j] = y;
-        chains[mol].z[j] = z;
+        ARRAY2D(chains[mol].r, j, 0, 3) = x;
+        ARRAY2D(chains[mol].r, j, 1, 3) = y;
+        ARRAY2D(chains[mol].r, j, 2, 3) = z;
         chains[mol].m++;
         assert(chains[mol].m <= chains[mol].n);
     }
@@ -94,6 +141,34 @@ int read_frame(gzFile fp, chain_t *chains, int nchains)
 
     return step;
 }
+
+int read_natoms(char *fn)
+{
+    int n;
+    FILE *fp;
+
+    if (fn == NULL) {
+        return -1;
+    }
+
+    fp = fopen(fn, "r");
+    if (fp == NULL) {
+        fprintf(stderr, "Error: could not open file %s\n", fn);
+        exit(1);
+    }
+
+    while (fgets(buf, BUFSIZ, fp)) {
+        if (strstr(buf, " atoms")) {
+            sscanf(buf, "%d", &n);
+            fclose(fp);
+            return n;
+        }
+    }
+
+    fclose(fp);
+    return -1;
+}
+
 
 double read_mass(char *fn)
 {
@@ -156,47 +231,6 @@ void copy_chain(chain_t *c1, chain_t *c2)
                 ARRAY2D(c2->r, i, j, 3) = ARRAY2D(c1->r, i, j, 3);
             }
         }
-    }
-
-    if (c1->x != NULL) {
-        if (c2->x == NULL) {
-            c2->x = malloc(c2->n * sizeof(double));
-            assert(c2->x != NULL);
-        }
-        for (i = 0; i < c2->n; i++) {
-            c2->x[i] = c1->x[i];
-        }
-    }
-
-    if (c1->y != NULL) {
-        if (c2->y == NULL) {
-            c2->y = malloc(c2->n * sizeof(double));
-            assert(c2->y != NULL);
-        }
-        for (i = 0; i < c2->n; i++) {
-            c2->y[i] = c1->y[i];
-        }
-    }
-
-    if (c1->z != NULL) {
-        if (c2->z == NULL) {
-            c2->z = malloc(c2->n * sizeof(double));
-            assert(c2->z != NULL);
-        }
-        for (i = 0; i < c2->n; i++) {
-            c2->z[i] = c1->z[i];
-        }
-    }
-}
-
-void chain_convert(chain_t *c)
-{
-    int i;
-
-    for (i = 0; i < c->n; i++) {
-        ARRAY2D(c->r, i, 0, 3) = c->x[i];
-        ARRAY2D(c->r, i, 1, 3) = c->y[i];
-        ARRAY2D(c->r, i, 2, 3) = c->z[i];
     }
 }
 
@@ -364,81 +398,68 @@ void kabsch(chain_t *c, chain_t *ref)
     }
 }
 
-void compute_mwcm(double *sigma, double *sigmap, chain_t *c, double m)
-{
-    int i, j;
-    double *M;
-    double n;
-
-    n = c->n;
-
-    M = malloc(n * n * sizeof(double));
-    assert(M != NULL);
-
-    for (i = 0; i < n; i++) {
-        for (j = 0; j < n; j++) {
-            if (i == j) {
-                ARRAY2D(M, i, j, n) = sqrt(m);
-            } else {
-                ARRAY2D(M, i, j, n) = 0;
-            }
-        }
-    }
-
-    for (i = 0; i < n; i++) {
-        for (j = 0; j < n; j++) {
-            if (i == j) {
-                ARRAY2D(M, i, j, n) = sqrt(m);
-            } else {
-                ARRAY2D(M, i, j, n) = 0;
-            }
-        }
-    }
-
-    free(M);
-}
-
 int main(int argc, char *argv[])
 {
     int i, j, k;
     int step;
     chain_t chains[NCHAINS];
-    chain_t ref;
+    chain_t ref[NCHAINS];
+    chain_t mean[NCHAINS];
+    double rg_min[NCHAINS];
     double clen = CHAINLEN;
     double mass;
-    gzFile fp;
+    gzFile fp, fpo;
     double xcom, ycom, zcom;
     double rg;
-    double rg_min;
     double xj, yj, zj;
     double xk, yk, zk;
-    double *sigma, *sigmap;
+    double boxlo[3], boxhi[3];
+    double *sigma, *sigmap, *lambda, *M, *A;
+    double omega, Sho;
+    double kB = 1.0;
+    double T = 2.0;
+    double hbar;
+    int m;
+    int nconf = 0;
+    int natoms;
+
+    hbar = 0.18292026/(2.0*M_PI);
+    m = 3*clen;
+    
+    /* consdereing each molecule individually */
 
     for (i = 0; i < NCHAINS; i++) {
+        /* main chains vector */
         chains[i].n = clen;
         chains[i].m = 0;
         chains[i].r = malloc(clen * 3 * sizeof(double));
-        chains[i].x = malloc(clen * sizeof(double));
-        chains[i].y = malloc(clen * sizeof(double));
-        chains[i].z = malloc(clen * sizeof(double));
         assert(chains[i].r != NULL);
-        assert(chains[i].x != NULL);
-        assert(chains[i].y != NULL);
-        assert(chains[i].z != NULL);
+        /* reference chains vector */
+        ref[i].n = clen;
+        ref[i].m = 0;
+        ref[i].r = malloc(clen * 3 * sizeof(double));
+        assert(ref[i].r != NULL);
+        /* mean */
+        mean[i].n = clen;
+        mean[i].m = 0;
+        mean[i].r = malloc(clen * 3 * sizeof(double));
+        assert(mean[i].r != NULL);
+        for (j = 0; j < clen; j++) {
+            ARRAY2D(mean[i].r, j, 0, 3) = 0;
+            ARRAY2D(mean[i].r, j, 1, 3) = 0;
+            ARRAY2D(mean[i].r, j, 2, 3) = 0;
+        }
+        /* min RG found for each chain */
+        rg_min[i] = DBL_MAX;
     }
 
-    /* Reference */
-    ref.n = clen;
-    ref.m = 0;
-    ref.r = malloc(clen * 3 * sizeof(double));
-    ref.x = malloc(clen * sizeof(double));
-    ref.y = malloc(clen * sizeof(double));
-    ref.z = malloc(clen * sizeof(double));
-    assert(ref.r != NULL);
-    assert(ref.x != NULL);
-    assert(ref.y != NULL);
-    assert(ref.z != NULL);
+    mass = read_mass("data.lmp");
+    assert(mass > 0);
 
+    natoms = read_natoms("data.lmp");
+    assert(natoms > 0);
+
+#if 0
     fp = gzopen("traj.dump.gz", "r");
     assert(fp != NULL);
 
@@ -447,12 +468,19 @@ int main(int argc, char *argv[])
         return EXIT_FAILURE;
     }
 
-    mass = read_mass("data.lmp");
-    assert(mass > 0);
+    fpo = gzopen("temp.dump.gz", "w");
+    assert(fpo != NULL);
 
-    while ((step = read_frame(fp, chains, NCHAINS)) >= 0) {
+    if (gzbuffer(fpo, 0xF0000) == -1) {
+        fprintf(stderr, "error: gzbuffer\n");
+        return EXIT_FAILURE;
+    }
 
-        printf("%d\n", step);
+
+
+    while ((step = read_frame(fp, chains, NCHAINS, boxlo, boxhi)) >= 0) {
+
+        printf("1ST PASS: %d\n", step);
 
         /* Remove COM from each molecule */
         for (i = 0; i < NCHAINS; i++) {
@@ -460,72 +488,138 @@ int main(int argc, char *argv[])
             ycom = 0;
             zcom = 0;
             for (j = 0; j < chains[i].n; j++) {
-                xcom += (chains[i].x[j] * mass);
-                ycom += (chains[i].y[j] * mass);
-                zcom += (chains[i].z[j] * mass);
+                xcom += (ARRAY2D(chains[i].r, j, 0, 3) * mass);
+                ycom += (ARRAY2D(chains[i].r, j, 1, 3) * mass);
+                zcom += (ARRAY2D(chains[i].r, j, 2, 3) * mass);
             }
             xcom /= (chains[i].n * mass);
             ycom /= (chains[i].n * mass);
             zcom /= (chains[i].n * mass);
             for (j = 0; j < chains[i].n; j++) {
-                chains[i].x[j] -= xcom;
-                chains[i].y[j] -= ycom;
-                chains[i].z[j] -= zcom;
+                ARRAY2D(chains[i].r, j, 0, 3) -= xcom;
+                ARRAY2D(chains[i].r, j, 1, 3) -= ycom;
+                ARRAY2D(chains[i].r, j, 2, 3) -= zcom;
             }
         }
 
         /* Save reference */
-        rg_min = DBL_MAX;
         for (i = 0; i < NCHAINS; i++) {
             rg = 0;
             for (j = 0; j < chains[i].n; j++) {
-                xj = chains[i].x[j];
-                yj = chains[i].y[j];
-                zj = chains[i].z[j];
+                xj = ARRAY2D(chains[i].r, j, 0, 3);
+                yj = ARRAY2D(chains[i].r, j, 1, 3);
+                zj = ARRAY2D(chains[i].r, j, 2, 3);
                 for (k = 0; k < chains[i].n; k++) {
-                    xk = chains[i].x[k];
-                    yk = chains[i].y[k];
-                    zk = chains[i].z[k];
+                    xk = ARRAY2D(chains[j].r, k, 0, 3);
+                    yk = ARRAY2D(chains[i].r, k, 1, 3);
+                    zk = ARRAY2D(chains[i].r, k, 2, 3);
                     rg += distance_sq(xj, yj, zj, xk, yk, zk);
                 }
                 rg /= (2.0 * chains[i].n * chains[i].n);
                 rg = sqrt(rg);
             }
-            if (rg < rg_min) {
-                rg_min = rg;
-                copy_chain(&chains[i], &ref);
+            if (rg < rg_min[i]) {
+                rg_min[i] = rg;
+                copy_chain(&chains[i], &ref[i]);
             }
         }
 
-        /* Convert to matrix */
-        for (i = 0; i < NCHAINS; i++) {
-            chain_convert(&chains[i]);
-            //printf("--- %3d ---\n", i);
-            //chain_print_matrix(&chains[i]);
-        }
-        chain_convert(&ref);
-        //printf("--- ref ---\n");
-        //chain_print_matrix(&ref);
-        
         /* Remove rigid-body rotation */
         for (i = 0; i < NCHAINS; i++) {
-            kabsch(&chains[i], &ref);
+            kabsch(&chains[i], &ref[i]);
         }
 
+        nconf++;
+
+        /* Write frame */
+        write_frame(fpo, chains, step, NCHAINS, natoms, boxlo, boxhi);
+
+        /* Compute fluctuations */
         for (i = 0; i < NCHAINS; i++) {
-            sigma = malloc(chains[i].n * chains[i].n * sizeof(double));
-            sigmap = malloc(chains[i].n * chains[i].n * sizeof(double));
-            assert(sigma != NULL);
-            assert(sigmap != NULL);
-            compute_mwcm(sigma, sigmap, &chains[i], mass);
-            free(sigmap);
-            free(sigma);
+            for (j = 0; j < mean[i].n; j++) {
+                ARRAY2D(mean[i].r, j, 0, 3) += ((ARRAY2D(chains[i].r, j, 0, 3) - ARRAY2D(mean[i].r, j, 0, 3))/((double)nconf));
+                ARRAY2D(mean[i].r, j, 1, 3) += ((ARRAY2D(chains[i].r, j, 1, 3) - ARRAY2D(mean[i].r, j, 1, 3))/((double)nconf));
+                ARRAY2D(mean[i].r, j, 2, 3) += ((ARRAY2D(chains[i].r, j, 2, 3) - ARRAY2D(mean[i].r, j, 2, 3))/((double)nconf));
+            }
         }
-        
-        break;
+
+        //break;
     }
 
     gzclose(fp);
+    gzclose(fpo);
+#endif 
+    
+    sigma = malloc(m * m * sizeof(double));
+    sigmap = malloc(m * m * sizeof(double));
+    lambda = malloc(m * sizeof(double));
+    M = malloc(m * m * sizeof(double));
+    A = malloc(m * m * sizeof(double));
+    assert(sigma != NULL);
+    assert(sigmap != NULL);
+    assert(M != NULL);
+    assert(A != NULL);
+    assert(lambda != NULL);
+    m = 3*clen;
 
+    for (i = 0; i < m; i++) {
+        for (j = 0; j < m; j++) {
+            ARRAY2D(sigma, i, j, m) = 0;
+        }
+    }
+
+    fp = gzopen("temp.dump.gz", "r");
+    assert(fp != NULL);
+
+    if (gzbuffer(fp, 0xF0000) == -1) {
+        fprintf(stderr, "error: gzbuffer\n");
+        return EXIT_FAILURE;
+    }
+
+    nconf = 0;
+    while ((step = read_frame(fp, chains, NCHAINS, boxlo, boxhi)) >= 0) {
+        printf("2ND PASS: %d\n", step);
+        nconf++;
+        for (i = 0; i < NCHAINS; i++) {
+            for (j = 0; j < m; j++) {
+                for (k = 0; k < m; k++) {
+                    double sigma_new = (chains[i].r[j] - mean[i].r[j])*(chains[i].r[k] - mean[i].r[k]);
+                    ARRAY2D(sigma, j, k, m) += ((sigma_new - ARRAY2D(sigma, j, k, m)))/((double)nconf);
+                }
+            }
+        }
+    }
+
+    fprintf(stderr, "=> CONFIGURATIONS PARSED: %d\n", nconf);
+
+
+#if 1
+    for (i = 0; i < m; i++) {
+        for (j = 0; j < m; j++) {
+            if (i == j) {
+                ARRAY2D(M, i, j, m) = sqrt(m);
+            } else {
+                ARRAY2D(M, i, j, m) = 0;
+            }
+        }
+    }
+    cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, m, m, m, 1.0, M, m, sigma, m, 0, A, m);
+    cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, m, m, m, 1.0, A, m, M, m, 0, sigmap, m);
+    for (i = 0; i < m; i++) {
+        for (j = 0; j < m; j++) {
+            if (i > j) {
+                ARRAY2D(sigmap, i, j, m) = 0;
+            }
+        }
+    }
+    LAPACKE_dsyev(LAPACK_ROW_MAJOR, 'N', 'U', m, sigmap, m, lambda);
+#endif
+
+    Sho = 0;
+    for (i = 0; i < 6; i++) {
+        fprintf(stderr, "%20.10f  ", lambda[i]);
+    }
+    fprintf(stderr, "\n");
+            
     return 0;
 }
