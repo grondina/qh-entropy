@@ -405,6 +405,9 @@ int main(int argc, char *argv[])
     chain_t chains[NCHAINS];
     chain_t ref[NCHAINS];
     chain_t mean[NCHAINS];
+    chain_t sigma[NCHAINS];
+    chain_t sigmap[NCHAINS];
+    chain_t lambda[NCHAINS];
     double rg_min[NCHAINS];
     double clen = CHAINLEN;
     double mass;
@@ -414,8 +417,8 @@ int main(int argc, char *argv[])
     double xj, yj, zj;
     double xk, yk, zk;
     double boxlo[3], boxhi[3];
-    double *sigma, *sigmap, *lambda, *M, *A;
-    double omega, Sho;
+    double *M, *A;
+    double omega, factor, Sho;
     double kB = 1.0;
     double T = 2.0;
     double hbar;
@@ -441,13 +444,35 @@ int main(int argc, char *argv[])
         assert(ref[i].r != NULL);
         /* mean */
         mean[i].n = clen;
-        mean[i].m = 0;
-        mean[i].r = malloc(clen * 3 * sizeof(double));
+        mean[i].m = 3*clen;
+        mean[i].r = malloc(mean[i].m * sizeof(double));
         assert(mean[i].r != NULL);
-        for (j = 0; j < clen; j++) {
-            ARRAY2D(mean[i].r, j, 0, 3) = 0;
-            ARRAY2D(mean[i].r, j, 1, 3) = 0;
-            ARRAY2D(mean[i].r, j, 2, 3) = 0;
+        for (j = 0; j < mean[i].m; j++) {
+            mean[i].r[j] = 0;
+        }
+        /* sigma */
+        sigma[i].n = clen;
+        sigma[i].m = 3*clen;
+        sigma[i].r = malloc(sigma[i].m * sigma[i].m * sizeof(double));
+        assert(sigma[i].r != NULL);
+        for (j = 0; j < (sigma[i].m * sigma[i].m); j++) {
+            sigma[i].r[j] = 0;
+        }
+        /* sigmap */
+        sigmap[i].n = clen;
+        sigmap[i].m = 3*clen;
+        sigmap[i].r = malloc(sigmap[i].m * sigmap[i].m * sizeof(double));
+        assert(sigmap[i].r != NULL);
+        for (j = 0; j < (sigmap[i].m * sigmap[i].m); j++) {
+            sigmap[i].r[j] = 0;
+        }
+        /* lambda */
+        lambda[i].n = 3*clen;
+        lambda[i].m = 3*clen;
+        lambda[i].r = malloc(lambda[i].n * sizeof(double));
+        assert(lambda[i].r != NULL);
+        for (j = 0; j < lambda[i].n; j++) {
+            lambda[i].r[j] = 0;
         }
         /* min RG found for each chain */
         rg_min[i] = DBL_MAX;
@@ -459,7 +484,6 @@ int main(int argc, char *argv[])
     natoms = read_natoms("data.lmp");
     assert(natoms > 0);
 
-#if 0
     fp = gzopen("traj.dump.gz", "r");
     assert(fp != NULL);
 
@@ -475,8 +499,6 @@ int main(int argc, char *argv[])
         fprintf(stderr, "error: gzbuffer\n");
         return EXIT_FAILURE;
     }
-
-
 
     while ((step = read_frame(fp, chains, NCHAINS, boxlo, boxhi)) >= 0) {
 
@@ -536,10 +558,8 @@ int main(int argc, char *argv[])
 
         /* Compute fluctuations */
         for (i = 0; i < NCHAINS; i++) {
-            for (j = 0; j < mean[i].n; j++) {
-                ARRAY2D(mean[i].r, j, 0, 3) += ((ARRAY2D(chains[i].r, j, 0, 3) - ARRAY2D(mean[i].r, j, 0, 3))/((double)nconf));
-                ARRAY2D(mean[i].r, j, 1, 3) += ((ARRAY2D(chains[i].r, j, 1, 3) - ARRAY2D(mean[i].r, j, 1, 3))/((double)nconf));
-                ARRAY2D(mean[i].r, j, 2, 3) += ((ARRAY2D(chains[i].r, j, 2, 3) - ARRAY2D(mean[i].r, j, 2, 3))/((double)nconf));
+            for (j = 0; j < mean[i].m; j++) {
+                mean[i].r[j] += ((chains[i].r[j] - mean[i].r[j])/((double)nconf));
             }
         }
 
@@ -548,25 +568,12 @@ int main(int argc, char *argv[])
 
     gzclose(fp);
     gzclose(fpo);
-#endif 
     
-    sigma = malloc(m * m * sizeof(double));
-    sigmap = malloc(m * m * sizeof(double));
-    lambda = malloc(m * sizeof(double));
     M = malloc(m * m * sizeof(double));
     A = malloc(m * m * sizeof(double));
-    assert(sigma != NULL);
-    assert(sigmap != NULL);
     assert(M != NULL);
     assert(A != NULL);
     assert(lambda != NULL);
-    m = 3*clen;
-
-    for (i = 0; i < m; i++) {
-        for (j = 0; j < m; j++) {
-            ARRAY2D(sigma, i, j, m) = 0;
-        }
-    }
 
     fp = gzopen("temp.dump.gz", "r");
     assert(fp != NULL);
@@ -581,10 +588,10 @@ int main(int argc, char *argv[])
         printf("2ND PASS: %d\n", step);
         nconf++;
         for (i = 0; i < NCHAINS; i++) {
-            for (j = 0; j < m; j++) {
-                for (k = 0; k < m; k++) {
+            for (j = 0; j < sigma[i].m; j++) {
+                for (k = 0; k < sigma[i].m; k++) {
                     double sigma_new = (chains[i].r[j] - mean[i].r[j])*(chains[i].r[k] - mean[i].r[k]);
-                    ARRAY2D(sigma, j, k, m) += ((sigma_new - ARRAY2D(sigma, j, k, m)))/((double)nconf);
+                    ARRAY2D(sigma[i].r, j, k, sigma[i].m) += ((sigma_new - ARRAY2D(sigma[i].r, j, k, sigma[i].m))/((double)nconf));
                 }
             }
         }
@@ -592,8 +599,6 @@ int main(int argc, char *argv[])
 
     fprintf(stderr, "=> CONFIGURATIONS PARSED: %d\n", nconf);
 
-
-#if 1
     for (i = 0; i < m; i++) {
         for (j = 0; j < m; j++) {
             if (i == j) {
@@ -603,23 +608,34 @@ int main(int argc, char *argv[])
             }
         }
     }
-    cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, m, m, m, 1.0, M, m, sigma, m, 0, A, m);
-    cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, m, m, m, 1.0, A, m, M, m, 0, sigmap, m);
-    for (i = 0; i < m; i++) {
+
+    for (i = 0; i < NCHAINS; i++) {
+        cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, m, m, m, 1.0, M, m, sigma[i].r, m, 0, A, m);
+        cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, m, m, m, 1.0, A, m, M, m, 0, sigmap[i].r, m);
         for (j = 0; j < m; j++) {
-            if (i > j) {
-                ARRAY2D(sigmap, i, j, m) = 0;
+            for (k = 0; k < m; k++) {
+                if (j > k) {
+                    ARRAY2D(sigmap[i].r, j, k, m) = 0;
+                }
             }
         }
-    }
-    LAPACKE_dsyev(LAPACK_ROW_MAJOR, 'N', 'U', m, sigmap, m, lambda);
-#endif
+        LAPACKE_dsyev(LAPACK_ROW_MAJOR, 'N', 'U', m, sigmap[i].r, m, lambda[i].r);
 
-    Sho = 0;
-    for (i = 0; i < 6; i++) {
-        fprintf(stderr, "%20.10f  ", lambda[i]);
+#if 0
+        for (j = 0; j < m; j++) {
+            fprintf(stderr, "%12.6f  ", lambda[i].r[j]);
+        }
+        fprintf(stderr, "\n---\n");
+#endif
+        Sho = 0;
+        for (j = 6; j < m; j++) {
+            omega = sqrt((kB*T)/lambda[i].r[j]);
+            factor = (hbar*omega)/(kB*T);
+            Sho += (factor/(exp(factor) - 1.0)) - (log(1.0 - exp(-factor)));
+        }
+        Sho *= kB;
+        fprintf(stderr, "CHAIN %3d ENTROPY = %12.6f\n", i+1, Sho);
     }
-    fprintf(stderr, "\n");
             
     return 0;
 }
