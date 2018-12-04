@@ -3,7 +3,7 @@ CFLAGS=-Wall -Wextra -O3
 LIBS=-lm -lcblas -llapacke
 DEPS = io.h
 OBJS = main.o io.o
-EXEC = qh
+EXEC = qh-entropy
 
 %.o: %.c $(DEPS)
 	$(CC) $(CFLAGS) -c -o $@ $<
