@@ -1,10 +1,14 @@
+#include <argp.h>
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <argp.h>
+#include <zlib.h>
+
 #include "io.h"
 
 struct arguments {
+    int n;
+    double temp;
     char *fndata;
     char *fndump;
 };
@@ -14,8 +18,10 @@ const char *argp_program_bug_address = "Gustavo Rondina <rondina@gmail.com>";
 static char doc[] = "qh-entropy -- Quasi-harmonical approach to the entropy of macromolecules";
 
 static struct argp_option options[] = {
-    { "data", 'a', "FILE", 0, "LAMMPS data file", 0 },
-    { "dump", 'u', "FILE", 0, "LAMMPS dump file", 0 },
+    { "data",         'a', "FILE",  0, "LAMMPS data file",               0 },
+    { "dump",         'u', "FILE",  0, "LAMMPS dump file",               0 },
+    { "temperature",  't', "VALUE", 0, "Temperature",                    0 },
+    { "chain-length", 'c', "VALUE", 0, "Length of Lennard-Jones chains", 0 },
     { NULL,    0,  NULL,   0, NULL,               0 }
 };
 
@@ -29,6 +35,9 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state)
         break;
     case 'u':
         arguments->fndump = arg;
+        break;
+    case 't':
+        arguments->temp = atof(arg);
         break;
     case ARGP_KEY_ARG:
         argp_failure(state, 1, 0, "this program takes no arguments");
@@ -54,6 +63,16 @@ static int check_arguments(struct arguments *arguments)
         ret = -1;
     }
 
+    if (arguments->temp <= 0) {
+        fprintf(stderr, "Error: temperature must be greater than zero\n");
+        ret = -1;
+    }
+
+    if (arguments->n <= 0) {
+        fprintf(stderr, "Error: chain length must be greater than zero\n");
+        ret = -1;
+    }
+
     return ret;
 }
 
@@ -61,6 +80,8 @@ int main(int argc, char **argv)
 {
     struct arguments arguments;
 
+    arguments.n = -1;
+    arguments.temp = -1;
     arguments.fndata = NULL;
     arguments.fndump = NULL;
 
