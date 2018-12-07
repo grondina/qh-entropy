@@ -5,12 +5,13 @@
 #include <zlib.h>
 
 #include "io.h"
+#include "data.h"
 
 struct arguments {
-    int n;
-    double temp;
-    char *fndata;
-    char *fndump;
+    int n;              /* chain length */
+    double temp;        /* temperature */
+    char *fndata;       /* name of data file */
+    char *fndump;       /* name of dump file */
 };
 
 const char *argp_program_version = "0.1";
@@ -22,7 +23,7 @@ static struct argp_option options[] = {
     { "dump",         'u', "FILE",  0, "LAMMPS dump file",               0 },
     { "temperature",  't', "VALUE", 0, "Temperature",                    0 },
     { "chain-length", 'c', "VALUE", 0, "Length of Lennard-Jones chains", 0 },
-    { NULL,    0,  NULL,   0, NULL,               0 }
+    {  NULL,           0,   NULL,   0,  NULL,                            0 }
 };
 
 static error_t parse_opt(int key, char *arg, struct argp_state *state)
@@ -38,6 +39,9 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state)
         break;
     case 't':
         arguments->temp = atof(arg);
+        break;
+    case 'c':
+        arguments->n = atoi(arg);
         break;
     case ARGP_KEY_ARG:
         argp_failure(state, 1, 0, "this program takes no arguments");
@@ -79,7 +83,6 @@ static int check_arguments(struct arguments *arguments)
 int main(int argc, char **argv)
 {
     struct arguments arguments;
-
     arguments.n = -1;
     arguments.temp = -1;
     arguments.fndata = NULL;
@@ -90,6 +93,14 @@ int main(int argc, char **argv)
 
     if (check_arguments(&arguments) < 0)
         return EXIT_FAILURE;
+
+    struct data data;
+    init_data(&data);
+
+    if (read_data(arguments.fndata, &data) < 0)
+        return EXIT_FAILURE;
+
+    free_data(&data);
 
     return EXIT_SUCCESS;
 }

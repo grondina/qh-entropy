@@ -1,8 +1,8 @@
 CC=gcc
-CFLAGS=-Wall -Wextra -O3
+CFLAGS=-std=c99 -Wall -Wextra -O3
 LIBS=-lm -lcblas -llapacke
-DEPS = io.h
-OBJS = main.o io.o
+DEPS = data.h io.h
+OBJS = data.o main.o io.o
 EXEC = qh-entropy
 
 %.o: %.c $(DEPS)
