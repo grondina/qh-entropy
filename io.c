@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <errno.h>
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -27,33 +28,27 @@ int read_data(char *fndata, struct data *data)
 
     while (fgets(buf, BUFSIZ, fp)) {
 
+        /* Number of atom types */
         if (strstr(buf, "atom types")) {
-
             sscanf(buf, "%d", &ntypes);
             data->ntypes = ntypes;
-
             continue;
         }
 
+        /* Atom masses */
         if (strstr(buf, "Masses")) {
-
             /* Make sure we know how many types are there */
             assert(data->ntypes > 0);
-
             /* Allocate vectors */
             data->mass = malloc(data->ntypes * sizeof(double));
             data->type = malloc(data->ntypes * sizeof(double));
             assert(data->mass != NULL);
             assert(data->type != NULL);
-
             /* Skip blank line */
             assert(fgets(buf, BUFSIZ, fp));
-
             /* Read ntypes masses */
             for (int i = 0; i < data->ntypes; ++i) {
-
                 assert(fgets(buf, BUFSIZ, fp));
-
                 if (sscanf(buf, "%d %lf", &type, &mass) == 2) {
                     assert(type > 0);
                     data->type[i] = type;
@@ -63,8 +58,27 @@ int read_data(char *fndata, struct data *data)
                     return -1;
                 }
             }
+            continue;
+        }
 
-            break;
+        /* Box dimensions */
+        if (strstr(buf, "xlo")) {
+            double lo, hi;
+            sscanf(buf, "%lf %lf", &lo, &hi);
+            data->xlen = fabs(hi - lo);
+            continue;
+        }
+        if (strstr(buf, "ylo")) {
+            double lo, hi;
+            sscanf(buf, "%lf %lf", &lo, &hi);
+            data->ylen = fabs(hi - lo);
+            continue;
+        }
+        if (strstr(buf, "zlo")) {
+            double lo, hi;
+            sscanf(buf, "%lf %lf", &lo, &hi);
+            data->zlen = fabs(hi - lo);
+            continue;
         }
     }
 
