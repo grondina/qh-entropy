@@ -12,14 +12,10 @@ static char buf[BUFSIZ];
 
 int read_data(char *fndata, struct data *data)
 {
-    int type;
-    int ntypes;
-    double mass;
-    FILE *fp;
-
     assert(fndata != NULL);
     assert(data != NULL);
 
+    FILE *fp;
     fp = fopen(fndata, "r");
     if (fp == NULL) {
         perror("read_data");
@@ -30,8 +26,17 @@ int read_data(char *fndata, struct data *data)
 
         /* Number of atom types */
         if (strstr(buf, "atom types")) {
+            int ntypes;
             sscanf(buf, "%d", &ntypes);
             data->ntypes = ntypes;
+            continue;
+        }
+
+        /* Number of atoms */
+        if (strstr(buf, "atoms")) {
+            int natoms;
+            sscanf(buf, "%d", &natoms);
+            data->natoms = natoms;
             continue;
         }
 
@@ -48,6 +53,8 @@ int read_data(char *fndata, struct data *data)
             assert(fgets(buf, BUFSIZ, fp));
             /* Read ntypes masses */
             for (int i = 0; i < data->ntypes; ++i) {
+                int type;
+                double mass;
                 assert(fgets(buf, BUFSIZ, fp));
                 if (sscanf(buf, "%d %lf", &type, &mass) == 2) {
                     assert(type > 0);
