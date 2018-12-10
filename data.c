@@ -6,6 +6,7 @@ void init_data(struct data *data)
 {
     data->ntypes = -1;
     data->ntypes = -1;
+    data->nmol= -1;
     data->mass = NULL;
     data->type = NULL;
     data->xlen = -1;

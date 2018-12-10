@@ -4,6 +4,7 @@
 struct data {
     int ntypes;
     int natoms;
+    int nmol;
     int *type;
     double xlen;        /* box length in x direction */
     double ylen;        /* box length in y direction */

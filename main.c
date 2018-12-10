@@ -100,6 +100,18 @@ int main(int argc, char **argv)
     if (read_data(arguments.fndata, &data) < 0)
         return EXIT_FAILURE;
 
+    /* Make sure info read from data file is valid */
+    assert(data.natoms > 0);
+    
+    /* There should be at least n atoms (i.e., at least 1 molecule) */
+    assert(arguments.n <= data.natoms);
+    
+    /* All molecules should have n atoms */
+    assert((data.natoms % arguments.n) == 0);
+
+    /* Number of molecules */
+    data.nmol = data.natoms/arguments.n;
+
     free_data(&data);
 
     return EXIT_SUCCESS;
