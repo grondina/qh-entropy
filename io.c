@@ -8,6 +8,7 @@
 #include "io.h"
 #include "data.h"
 #include "traj.h"
+#include "util.h"
 
 static char buf[BUFSIZ];
 
@@ -104,8 +105,20 @@ long int read_frame(gzFile fp, struct frame *frame, struct data *data)
     assert(frame != NULL);
     assert(data != NULL);
 
+    /* Reset read counter for all molecules */
+    for (int i = 0; i < frame->nmols; ++i)
+        frame->mol[i].m = 0;
+
     /* TIMESTEP */
-    assert(gzgets(fp, buf, BUFSIZ) != NULL);
+    if (gzgets(fp, buf, BUFSIZ) == NULL) {
+        if (gzeof(fp)) {
+            return -1;
+        } else {
+            int err;
+            fprintf(stderr, "error: %s\n", gzerror(fp, &err));
+            exit(EXIT_FAILURE);
+        }
+    }
 
     /* TIMESTEP value */
     long int step;
@@ -147,24 +160,49 @@ long int read_frame(gzFile fp, struct frame *frame, struct data *data)
     assert(fabs(data->zlen - zlen) < 1.0e6);
 
     /* ATOMS id mol xu yu zu */
-    assert(fabs(data->zlen - zlen) < 1.0e6);
+    assert(gzgets(fp, buf, BUFSIZ) != NULL);
 
     /* Read atoms */
+
+    double (*R)[3] = malloc(sizeof (double[data->natoms][3]));
+    assert(R != NULL);
+
     for (int i = 0; i < data->natoms; ++i) {
-        int id, mol;
+
+        int id, type, mol;
         double x, y, z;
+
         assert(gzgets(fp, buf, BUFSIZ) != NULL);
-        sscanf(buf, "%d %d %lf %lf %lf", &id, &mol, &x, &y, &z);
+        sscanf(buf, "%d %d %d %lf %lf %lf", &id, &type, &mol, &x, &y, &z);
+
         assert(id <= data->natoms);
         assert(mol <= data->nmols);
+
         mol--;
+        id--;
+
         int j = frame->mol[mol].m;
-        frame->mol[mol].R[j][0] = x;
-        frame->mol[mol].R[j][1] = y;
-        frame->mol[mol].R[j][2] = z;
+        assert(j < frame->mol[mol].n);
+
         frame->mol[mol].m++;
-        assert(frame->mol[mol].m <= frame->mol[mol].m);
+        frame->mol[mol].atoms[j] = id;
+
+        R[id][0] = x;
+        R[id][1] = y;
+        R[id][2] = z;
     }
+
+    for (int i = 0; i < data->nmols; ++i) {
+        qsort(frame->mol[i].atoms, frame->mol[i].m, sizeof(int), cmpint);
+        for (int j = 0; j < frame->mol[i].m; ++j) {
+            int id = frame->mol[i].atoms[j];
+            frame->mol[i].R[j][0] = R[id][0];
+            frame->mol[i].R[j][1] = R[id][1];
+            frame->mol[i].R[j][2] = R[id][2];
+        }
+    }
+
+    free(R);
 
     return step;
 }

@@ -115,7 +115,7 @@ int main(int argc, char **argv)
     data.nmols = data.natoms/data.molsize;
 
     /* 1st pass */
-    parse_pass1(&data);
+    parse_pass1(arguments.fndump, &data);
 
     free_data(&data);
     return EXIT_SUCCESS;

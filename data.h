@@ -27,4 +27,6 @@ extern void free_data(struct data *data);
 extern void init_molecule(struct molecule *molecule, int n);
 extern void free_molecule(struct molecule *molecule);
 
+extern void print_atoms(struct molecule *mol);
+
 #endif

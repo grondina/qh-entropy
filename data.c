@@ -52,3 +52,20 @@ void free_molecule(struct molecule *molecule)
     free(molecule->atoms);
     free(molecule->R);
 }
+
+void print_atoms(struct molecule *mol)
+{
+    if (mol == NULL)
+        return;
+
+    for (int i = 0; i < mol->m; ++i) {
+        char *s = (i == (mol->m - 1)) ? "\n" : "   ";
+        printf("%3d%s", mol->atoms[i], s);
+    }
+
+    printf("-----------------\n");
+    for (int i = 0; i < mol->m; ++i) {
+        printf("%10.6f    %10.6f    %10.6f\n",
+              mol->R[i][0], mol->R[i][1], mol->R[i][2]);
+    }
+}
