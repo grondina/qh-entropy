@@ -52,58 +52,22 @@ void parse_pass1(const char *fndump, struct data *data, struct molecule *refmols
             exit(EXIT_FAILURE);
     }
 
-    /* TODO: move removal of COM to 2nd pass */
-
     long int step;
     while ((step = read_frame(fpdump, &frame, data)) >= 0) {
 
         printf("(1) TIMESTEP: %ld\n", step);
 
-#if 0
+        /* Obtaining reference based on RoG (smallest) */
         for (int i = 0; i < frame.nmols; ++i) {
-            printf("molecule %3d:   ", i);
-            print_atoms(&frame.mol[i]);
-        }
-#endif
-
-        for (int i = 0; i < frame.nmols; ++i) {
-
-            /* Remove center of mass */
-            double xcom = 0;
-            double ycom = 0;
-            double zcom = 0;
-            double mass = 0;
-            for (int j = 0; j < frame.mol[i].m; ++j) {
-                xcom += (frame.mol[i].R[j][0] * frame.mol[i].mass[j]);
-                ycom += (frame.mol[i].R[j][1] * frame.mol[i].mass[j]);
-                zcom += (frame.mol[i].R[j][2] * frame.mol[i].mass[j]);
-                mass += frame.mol[i].mass[j];
-            }
-            xcom /= mass;
-            ycom /= mass;
-            zcom /= mass;
-            for (int j = 0; j < frame.mol[i].m; ++j) {
-                frame.mol[i].R[j][0] -= xcom;
-                frame.mol[i].R[j][1] -= xcom;
-                frame.mol[i].R[j][2] -= xcom;
-            }
-
-            /* Calculate radius of gyration */
             frame.mol[i].gyr = gyration(&frame.mol[i]);
-
-            /* Check against references, save it if needed */
-            if (frame.mol[i].gyr < refmols[i].gyr) {
-                for (int j = 0; j < frame.mol[i].m; ++j) {
-                    refmols[i].R[j][0] = frame.mol[i].R[j][0];
-                    refmols[i].R[j][1] = frame.mol[i].R[j][1];
-                    refmols[i].R[j][2] = frame.mol[i].R[j][2];
-                    refmols[i].gyr = frame.mol[i].gyr;
-                }
-            }
+            if (frame.mol[i].gyr < refmols[i].gyr)
+                copy_molecule(&refmols[i], &frame.mol[i]);
         }
     }
 
-    //print_reference(refmols, data);
+    /* Remove COM of reference */
+    for (int i = 0; i < frame.nmols; ++i)
+        remove_com(&refmols[i]);
 
     gzclose(fpdump);
     free_frame(&frame);
@@ -126,8 +90,18 @@ void parse_pass2(const char *fndump, struct data *data, struct molecule *refmols
     long int step;
     while ((step = read_frame(fpdump, &frame, data)) >= 0) {
         printf("(2) TIMESTEP: %ld\n", step);
+
         for (int i = 0; i < frame.nmols; ++i) {
+
+            /* Remove center of mass */
+            remove_com(&frame.mol[i]);
+
+            /* Remove right body rotation */
+            //printf("=== MOL %3d BEFORE: ===\n", i);
+            //print_atoms(&frame.mol[i]);
             kabsch(&frame.mol[i], &refmols[i]);
+            //printf("=== MOL %3d AFTER:  ===\n", i);
+            //print_atoms(&frame.mol[i]);
         }
     }
 

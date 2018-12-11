@@ -10,6 +10,17 @@
 #include "data.h"
 #include "util.h"
 
+static void print_matrix(int N, int M, double (*A)[M])
+{
+    for (int i = 0; i < N; ++i) {
+        for (int j = 0; j < M; ++j) {
+            char *s = (j == M-1) ? "\n" : "  ";
+            printf("% -8.4f%s", A[i][j], s);
+        }
+    }
+}
+
+
 static double det3x3(double *A)
 {
         return (A[0]*A[4]*A[8] + A[1]*A[5]*A[6] + A[2]*A[3]*A[7] - A[2]*A[4]*A[6] - A[1]*A[3]*A[8] - A[0]*A[5]*A[7]);
@@ -105,11 +116,24 @@ void kabsch(struct molecule *mol, struct molecule *ref)
     double *pVt = &(Vt[0][0]);
     double *pUt = &(Ut[0][0]);
 
+    printf("-------------------------------\n");
+
+    printf("P = \n");
+    print_matrix(N, 3, P);
+
+    printf("Q = \n");
+    print_matrix(N, 3, Q);
+
     /* Get Pt = trans(P) */
     LAPACKE_dge_trans(LAPACK_ROW_MAJOR, N, 3, pP, 3, pPt, N);
 
+    printf("Pt = \n");
+    print_matrix(3, N, Pt);
+
     /* Get H = Pt*Q */
     cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, 3, 3, N, 1.0, pPt, N, pQ, 3, 0, pH, 3);
+    printf("H = \n");
+    print_matrix(3, 3, H);
 
     /* Perform SVD: H = U*S*Vt */
     double superb[10];
@@ -161,4 +185,28 @@ void kabsch(struct molecule *mol, struct molecule *ref)
     free(Pt);
     free(Vt);
     free(Ut);
+}
+
+void remove_com(struct molecule *mol)
+{
+    double xcom = 0;
+    double ycom = 0;
+    double zcom = 0;
+    double mass = 0;
+
+    for (int j = 0; j < mol->m; ++j) {
+        xcom += (mol->R[j][0] * mol->mass[j]);
+        ycom += (mol->R[j][1] * mol->mass[j]);
+        zcom += (mol->R[j][2] * mol->mass[j]);
+        mass += mol->mass[j];
+    }
+    xcom /= mass;
+    ycom /= mass;
+    zcom /= mass;
+
+    for (int j = 0; j < mol->m; ++j) {
+        mol->R[j][0] -= xcom;
+        mol->R[j][1] -= ycom;
+        mol->R[j][2] -= zcom;
+    }
 }

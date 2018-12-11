@@ -2,7 +2,38 @@
 #include <float.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+
 #include "data.h"
+
+void copy_molecule(struct molecule *m2, struct molecule *m1)
+{
+    if (m1 == NULL)
+        return;
+
+    if (m2 == NULL)
+        return;
+
+    m2->n = m1->n;
+    m2->m = m1->m;
+    m2->gyr = m1->gyr;
+
+    assert(m1->atoms != NULL);
+    assert(m2->atoms != NULL);
+    memcpy(m2->atoms, m1->atoms, (m1->n * sizeof(int)));
+
+    assert(m1->types != NULL);
+    assert(m2->types != NULL);
+    memcpy(m2->types, m1->types, (m1->n * sizeof(int)));
+
+    assert(m1->mass != NULL);
+    assert(m2->mass != NULL);
+    memcpy(m2->mass, m1->mass, (m1->n * sizeof(double)));
+
+    assert(m1->R != NULL);
+    assert(m2->R != NULL);
+    memcpy(m2->R, m1->R, (m1->n * 3 * sizeof(double)));
+}
 
 void init_data(struct data *data)
 {

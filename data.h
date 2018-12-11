@@ -32,6 +32,8 @@ extern void free_molecule(struct molecule *molecule);
 
 extern void print_atoms(struct molecule *mol);
 
-double get_mass(struct data *data, int type);
+extern double get_mass(struct data *data, int type);
+
+extern void copy_molecule(struct molecule *m2, struct molecule *m1);
 
 #endif

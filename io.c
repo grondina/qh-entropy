@@ -198,6 +198,7 @@ long int read_frame(gzFile fp, struct frame *frame, struct data *data)
     }
 
     for (int i = 0; i < data->nmols; ++i) {
+        assert(frame->mol[i].m == frame->mol[i].n);
         qsort(frame->mol[i].atoms, frame->mol[i].m, sizeof(int), cmpint);
         for (int j = 0; j < frame->mol[i].m; ++j) {
             int id = frame->mol[i].atoms[j];
