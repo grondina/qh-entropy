@@ -52,10 +52,12 @@ void parse_pass1(const char *fndump, struct data *data, struct molecule *refmols
             exit(EXIT_FAILURE);
     }
 
+    /* TODO: move removal of COM to 2nd pass */
+
     long int step;
     while ((step = read_frame(fpdump, &frame, data)) >= 0) {
 
-        printf("TIMESTEP: %ld\n", step);
+        printf("(1) TIMESTEP: %ld\n", step);
 
 #if 0
         for (int i = 0; i < frame.nmols; ++i) {
@@ -102,6 +104,32 @@ void parse_pass1(const char *fndump, struct data *data, struct molecule *refmols
     }
 
     //print_reference(refmols, data);
+
+    gzclose(fpdump);
+    free_frame(&frame);
+}
+
+void parse_pass2(const char *fndump, struct data *data, struct molecule *refmols)
+{
+    struct frame frame;
+    init_frame(&frame, data);
+
+    assert(fndump != NULL);
+    gzFile fpdump = gzopen(fndump, "r");
+    assert(fpdump != NULL);
+
+    if (gzbuffer(fpdump, 0xF0000) == -1) {
+        fprintf(stderr, "error: gzbuffer\n");
+            exit(EXIT_FAILURE);
+    }
+
+    long int step;
+    while ((step = read_frame(fpdump, &frame, data)) >= 0) {
+        printf("(2) TIMESTEP: %ld\n", step);
+        for (int i = 0; i < frame.nmols; ++i) {
+            kabsch(&frame.mol[i], &refmols[i]);
+        }
+    }
 
     gzclose(fpdump);
     free_frame(&frame);

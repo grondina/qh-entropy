@@ -115,10 +115,16 @@ int main(int argc, char **argv)
     data.molsize = arguments.n;
     data.nmols = data.natoms/data.molsize;
 
-    /* 1st pass */
+    /* Reference */
     struct molecule *refmols = init_reference(&data);
+
+    /* 1st pass */
     parse_pass1(arguments.fndump, &data, refmols);
 
+    /* 2nd pass */
+    parse_pass2(arguments.fndump, &data, refmols);
+
+    /* Clean up */
     free_reference(refmols, &data);
     free_data(&data);
 

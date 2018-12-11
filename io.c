@@ -5,8 +5,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <zlib.h>
-#include "io.h"
 #include "data.h"
+#include "io.h"
 #include "traj.h"
 #include "util.h"
 
