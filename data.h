@@ -19,6 +19,7 @@ struct molecule {
     int m;          /* number of atoms already read */
     int *atoms;     /* sorted array of n atom indices   */
     int *types;     /* types of atoms */
+    double gyr;     /* radius of gyration */
     double *mass;
     double (*R)[3]; /* coordinates, n rows x 3 columns  */
 };

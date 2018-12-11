@@ -4,7 +4,9 @@
 #include <zlib.h>
 #include "data.h"
 #include "io.h"
+#include "ref.h"
 #include "traj.h"
+#include "util.h"
 
 void init_frame(struct frame *frame, struct data *data)
 {
@@ -62,16 +64,13 @@ void parse_pass1(const char *fndump, struct data *data)
         }
 #endif
 
-        double xcom;
-        double ycom;
-        double zcom;
-        double mass;
-
         for (int i = 0; i < frame.nmols; ++i) {
-            xcom = 0;
-            ycom = 0;
-            zcom = 0;
-            mass = 0;
+
+            /* Remove center of mass */
+            double xcom = 0;
+            double ycom = 0;
+            double zcom = 0;
+            double mass = 0;
             for (int j = 0; j < frame.mol[i].m; ++j) {
                 xcom += (frame.mol[i].R[j][0] * frame.mol[i].mass[j]);
                 ycom += (frame.mol[i].R[j][1] * frame.mol[i].mass[j]);
@@ -86,6 +85,9 @@ void parse_pass1(const char *fndump, struct data *data)
                 frame.mol[i].R[j][1] -= xcom;
                 frame.mol[i].R[j][2] -= xcom;
             }
+
+            /* Calculate radius of gyration */
+            frame.mol[i].gyr = gyration(&frame.mol[i]);
         }
     }
 

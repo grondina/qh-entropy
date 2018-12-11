@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <float.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include "data.h"
@@ -36,6 +37,7 @@ void init_molecule(struct molecule *mol, int n)
 
     mol->m = 0;
     mol->n = n;
+    mol->gyr = DBL_MAX;
 
     mol->atoms = malloc(mol->n * (sizeof (int)));
     assert(mol->atoms != NULL);

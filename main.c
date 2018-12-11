@@ -3,8 +3,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <zlib.h>
-#include "io.h"
 #include "data.h"
+#include "io.h"
+#include "ref.h"
 #include "traj.h"
 
 struct arguments {
@@ -115,8 +116,11 @@ int main(int argc, char **argv)
     data.nmols = data.natoms/data.molsize;
 
     /* 1st pass */
+    init_reference(&data);
     parse_pass1(arguments.fndump, &data);
 
+    free_reference(&data);
     free_data(&data);
+
     return EXIT_SUCCESS;
 }
