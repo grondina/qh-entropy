@@ -1,9 +1,9 @@
 CC=gcc
 CFLAGS=-std=c99 -Wall -Wextra -O3
-LIBS=-lm -lcblas -llapacke
-DEPS = data.h io.h
-OBJS = data.o main.o io.o
-EXEC = qh-entropy
+LIBS=-lm -lz -lcblas -llapacke
+DEPS = data.h io.h traj.h
+OBJS = data.o main.o io.o traj.o
+EXEC = qhe
 
 %.o: %.c $(DEPS)
 	$(CC) $(CFLAGS) -c -o $@ $<

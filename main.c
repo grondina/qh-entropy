@@ -3,9 +3,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <zlib.h>
-
 #include "io.h"
 #include "data.h"
+#include "traj.h"
 
 struct arguments {
     int n;              /* chain length */
@@ -109,10 +109,14 @@ int main(int argc, char **argv)
     /* All molecules should have n atoms */
     assert((data.natoms % arguments.n) == 0);
 
-    /* Number of molecules */
-    data.nmol = data.natoms/arguments.n;
+    /* Fill other fields */
+    data.temp = arguments.temp;
+    data.molsize = arguments.n;
+    data.nmols = data.natoms/data.molsize;
+
+    /* 1st pass */
+    parse_pass1(&data);
 
     free_data(&data);
-
     return EXIT_SUCCESS;
 }

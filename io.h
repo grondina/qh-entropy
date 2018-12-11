@@ -2,9 +2,10 @@
 #define _IO_H
 
 #include "data.h"
+#include "traj.h"
 
 extern int read_data(char *fndata, struct data *data);
-extern int read_frame(void);
+extern long int read_frame(gzFile fp, struct frame *frame, struct data *data);
 extern void write_frame(void);
 
 #endif

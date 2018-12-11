@@ -4,9 +4,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
+#include <zlib.h>
 #include "io.h"
 #include "data.h"
+#include "traj.h"
 
 static char buf[BUFSIZ];
 
@@ -98,9 +99,74 @@ int read_data(char *fndata, struct data *data)
     return 0;
 }
 
-int read_frame(void)
+long int read_frame(gzFile fp, struct frame *frame, struct data *data)
 {
-    return 0;
+    assert(frame != NULL);
+    assert(data != NULL);
+
+    /* TIMESTEP */
+    assert(gzgets(fp, buf, BUFSIZ) != NULL);
+
+    /* TIMESTEP value */
+    long int step;
+    assert(gzgets(fp, buf, BUFSIZ) != NULL);
+    sscanf(buf, "%ld", &step);
+    frame->step = step;
+
+    /* NUMBER OF ATOMS */
+    assert(gzgets(fp, buf, BUFSIZ) != NULL);
+
+    /* NUMBER OF ATOMS value */
+    int natoms;
+    assert(gzgets(fp, buf, BUFSIZ) != NULL);
+    sscanf(buf, "%d", &natoms);
+    assert(natoms == data->natoms);
+
+    /* BOX BOUNDS pp pp pp */
+    assert(gzgets(fp, buf, BUFSIZ) != NULL);
+
+    /* x bounds */
+    double lo, hi;
+    assert(gzgets(fp, buf, BUFSIZ) != NULL);
+    sscanf(buf, "%lf %lf", &lo, &hi);
+    double xlen = fabs(hi - lo);
+
+    /* y bounds */
+    assert(gzgets(fp, buf, BUFSIZ) != NULL);
+    sscanf(buf, "%lf %lf", &lo, &hi);
+    double ylen = fabs(hi - lo);
+
+    /* z bounds */
+    assert(gzgets(fp, buf, BUFSIZ) != NULL);
+    sscanf(buf, "%lf %lf", &lo, &hi);
+    double zlen = fabs(hi - lo);
+
+    /* Make sure box length isn't changing */
+    assert(fabs(data->xlen - xlen) < 1.0e6);
+    assert(fabs(data->ylen - ylen) < 1.0e6);
+    assert(fabs(data->zlen - zlen) < 1.0e6);
+
+    /* ATOMS id mol xu yu zu */
+    assert(fabs(data->zlen - zlen) < 1.0e6);
+
+    /* Read atoms */
+    for (int i = 0; i < data->natoms; ++i) {
+        int id, mol;
+        double x, y, z;
+        assert(gzgets(fp, buf, BUFSIZ) != NULL);
+        sscanf(buf, "%d %d %lf %lf %lf", &id, &mol, &x, &y, &z);
+        assert(id <= data->natoms);
+        assert(mol <= data->nmols);
+        mol--;
+        int j = frame->mol[mol].m;
+        frame->mol[mol].R[j][0] = x;
+        frame->mol[mol].R[j][1] = y;
+        frame->mol[mol].R[j][2] = z;
+        frame->mol[mol].m++;
+        assert(frame->mol[mol].m <= frame->mol[mol].m);
+    }
+
+    return step;
 }
 
 void write_frame(void)
