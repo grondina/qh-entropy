@@ -11,6 +11,6 @@ struct frame {
 
 extern void init_frame(struct frame *frame, struct data *data);
 extern void free_frame(struct frame *frame);
-extern void parse_pass1(const char *fndump, struct data *data);
+extern void parse_pass1(const char *fndump, struct data *data, struct molecule *refmols);
 
 #endif

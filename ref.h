@@ -3,9 +3,8 @@
 
 #include "data.h"
 
-extern struct molecule *refmols;
-
-extern void init_reference(struct data *data);
-extern void free_reference(struct data *data);
+extern struct molecule *init_reference(struct data *data);
+extern void free_reference(struct molecule *refmols, struct data *data);
+void print_reference(struct molecule *refmols, struct data *data);
 
 #endif

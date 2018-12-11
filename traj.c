@@ -38,7 +38,7 @@ void free_frame(struct frame *frame)
     free(frame->mol);
 }
 
-void parse_pass1(const char *fndump, struct data *data)
+void parse_pass1(const char *fndump, struct data *data, struct molecule *refmols)
 {
     struct frame frame;
     init_frame(&frame, data);
@@ -88,8 +88,20 @@ void parse_pass1(const char *fndump, struct data *data)
 
             /* Calculate radius of gyration */
             frame.mol[i].gyr = gyration(&frame.mol[i]);
+
+            /* Check against references, save it if needed */
+            if (frame.mol[i].gyr < refmols[i].gyr) {
+                for (int j = 0; j < frame.mol[i].m; ++j) {
+                    refmols[i].R[j][0] = frame.mol[i].R[j][0];
+                    refmols[i].R[j][1] = frame.mol[i].R[j][1];
+                    refmols[i].R[j][2] = frame.mol[i].R[j][2];
+                    refmols[i].gyr = frame.mol[i].gyr;
+                }
+            }
         }
     }
+
+    //print_reference(refmols, data);
 
     gzclose(fpdump);
     free_frame(&frame);
