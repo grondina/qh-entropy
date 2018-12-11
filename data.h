@@ -18,6 +18,8 @@ struct molecule {
     int n;          /* max number of atoms in this molecule */
     int m;          /* number of atoms already read */
     int *atoms;     /* sorted array of n atom indices   */
+    int *types;     /* types of atoms */
+    double *mass;
     double (*R)[3]; /* coordinates, n rows x 3 columns  */
 };
 
@@ -28,5 +30,7 @@ extern void init_molecule(struct molecule *molecule, int n);
 extern void free_molecule(struct molecule *molecule);
 
 extern void print_atoms(struct molecule *mol);
+
+double get_mass(struct data *data, int type);
 
 #endif

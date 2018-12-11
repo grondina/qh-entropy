@@ -36,8 +36,15 @@ void init_molecule(struct molecule *mol, int n)
 
     mol->m = 0;
     mol->n = n;
+
     mol->atoms = malloc(mol->n * (sizeof (int)));
     assert(mol->atoms != NULL);
+
+    mol->types = malloc(mol->n * (sizeof(int)));
+    assert(mol->types != NULL);
+
+    mol->mass = malloc(mol->n * (sizeof(double)));
+    assert(mol->mass != NULL);
 
     mol->R = malloc(sizeof (double([mol->n][3])));
     assert(mol->R != NULL);
@@ -50,6 +57,8 @@ void free_molecule(struct molecule *molecule)
         return;
 
     free(molecule->atoms);
+    free(molecule->types);
+    free(molecule->mass);
     free(molecule->R);
 }
 
@@ -65,7 +74,21 @@ void print_atoms(struct molecule *mol)
 
     printf("-----------------\n");
     for (int i = 0; i < mol->m; ++i) {
-        printf("%10.6f    %10.6f    %10.6f\n",
-              mol->R[i][0], mol->R[i][1], mol->R[i][2]);
+        printf("%10.6f    %10.6f    %10.6f   (%3d, %4.2f)\n",
+              mol->R[i][0], mol->R[i][1], mol->R[i][2],
+              mol->types[i], mol->mass[i]);
     }
+}
+
+double get_mass(struct data *data, int type)
+{
+    if (data == NULL)
+        return -1;
+
+    for (int i = 0; i < data->ntypes; ++i) {
+        if (type == data->type[i])
+            return data->mass[i];
+    }
+
+    return -1;
 }

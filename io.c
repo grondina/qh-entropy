@@ -167,6 +167,9 @@ long int read_frame(gzFile fp, struct frame *frame, struct data *data)
     double (*R)[3] = malloc(sizeof (double[data->natoms][3]));
     assert(R != NULL);
 
+    int *types = malloc(data->natoms * sizeof(int));
+    assert(types != NULL);
+
     for (int i = 0; i < data->natoms; ++i) {
 
         int id, type, mol;
@@ -190,6 +193,8 @@ long int read_frame(gzFile fp, struct frame *frame, struct data *data)
         R[id][0] = x;
         R[id][1] = y;
         R[id][2] = z;
+
+        types[id] = type;
     }
 
     for (int i = 0; i < data->nmols; ++i) {
@@ -199,10 +204,13 @@ long int read_frame(gzFile fp, struct frame *frame, struct data *data)
             frame->mol[i].R[j][0] = R[id][0];
             frame->mol[i].R[j][1] = R[id][1];
             frame->mol[i].R[j][2] = R[id][2];
+            frame->mol[i].types[j] = types[id];
+            frame->mol[i].mass[j] = get_mass(data, types[id]);
         }
     }
 
     free(R);
+    free(types);
 
     return step;
 }
