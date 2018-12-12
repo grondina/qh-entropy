@@ -13,15 +13,17 @@ struct arguments {
     double temp;        /* temperature */
     char *fndata;       /* name of data file */
     char *fndump;       /* name of dump file */
+    char *fntemp;       /* name of temp dump file */
 };
 
 const char *argp_program_version = "0.1";
 const char *argp_program_bug_address = "Gustavo Rondina <rondina@gmail.com>";
-static char doc[] = "qh-entropy -- Quasi-harmonical approach to the entropy of macromolecules";
+static char doc[] = "qhe -- Quasi-harmonical approach to the entropy of macromolecules";
 
 static struct argp_option options[] = {
     { "data",         'a', "FILE",  0, "LAMMPS data file",               0 },
     { "dump",         'u', "FILE",  0, "LAMMPS dump file",               0 },
+    { "temp",         'e', "FILE",  0, "Temporary dump file",            0 },
     { "temperature",  't', "VALUE", 0, "Temperature",                    0 },
     { "chain-length", 'c', "VALUE", 0, "Length of Lennard-Jones chains", 0 },
     {  NULL,           0,   NULL,   0,  NULL,                            0 }
@@ -37,6 +39,9 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state)
         break;
     case 'u':
         arguments->fndump = arg;
+        break;
+    case 'e':
+        arguments->fntemp = arg;
         break;
     case 't':
         arguments->temp = atof(arg);
@@ -68,6 +73,11 @@ static int check_arguments(struct arguments *arguments)
         ret = -1;
     }
 
+    if (arguments->fntemp == NULL) {
+        fprintf(stderr, "Error: temporary dump file was not specified, see --help\n");
+        ret = -1;
+    }
+
     if (arguments->temp <= 0) {
         fprintf(stderr, "Error: temperature must be greater than zero\n");
         ret = -1;
@@ -88,6 +98,7 @@ int main(int argc, char **argv)
     arguments.temp = -1;
     arguments.fndata = NULL;
     arguments.fndump = NULL;
+    arguments.fntemp = NULL;
 
     struct argp argp = { options, parse_opt, NULL, doc, NULL, NULL, NULL };
     argp_parse(&argp, argc, argv, ARGP_IN_ORDER, 0, &arguments);
@@ -122,7 +133,7 @@ int main(int argc, char **argv)
     parse_pass1(arguments.fndump, &data, refmols);
 
     /* 2nd pass */
-    parse_pass2(arguments.fndump, &data, refmols);
+    parse_pass2(arguments.fndump, arguments.fntemp, &data, refmols);
 
     /* Clean up */
     free_reference(refmols, &data);

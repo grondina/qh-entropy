@@ -65,6 +65,14 @@ void parse_pass1(const char *fndump, struct data *data, struct molecule *refmols
         }
     }
 
+    /* Make sure we stopped reading because file ended */
+    if (!gzeof(fpdump)) {
+        int err;
+        fprintf(stderr, "error: %s\n", gzerror(fpdump, &err));
+        exit(EXIT_FAILURE);
+    }
+
+
     /* Remove COM of reference */
     for (int i = 0; i < frame.nmols; ++i)
         remove_com(&refmols[i]);
@@ -73,7 +81,7 @@ void parse_pass1(const char *fndump, struct data *data, struct molecule *refmols
     free_frame(&frame);
 }
 
-void parse_pass2(const char *fndump, struct data *data, struct molecule *refmols)
+void parse_pass2(const char *fndump, const char *fntemp, struct data *data, struct molecule *refmols)
 {
     struct frame frame;
     init_frame(&frame, data);
@@ -84,11 +92,20 @@ void parse_pass2(const char *fndump, struct data *data, struct molecule *refmols
 
     if (gzbuffer(fpdump, 0xF0000) == -1) {
         fprintf(stderr, "error: gzbuffer\n");
-            exit(EXIT_FAILURE);
+        exit(EXIT_FAILURE);
+    }
+
+    gzFile fptemp = gzopen(fntemp, "w");
+    assert(fptemp != NULL);
+
+    if (gzbuffer(fptemp, 0xF0000) == -1) {
+        fprintf(stderr, "error: gzbuffer\n");
+        exit(EXIT_FAILURE);
     }
 
     long int step;
     while ((step = read_frame(fpdump, &frame, data)) >= 0) {
+
         printf("(2) TIMESTEP: %ld\n", step);
 
         for (int i = 0; i < frame.nmols; ++i) {
@@ -97,14 +114,21 @@ void parse_pass2(const char *fndump, struct data *data, struct molecule *refmols
             remove_com(&frame.mol[i]);
 
             /* Remove right body rotation */
-            //printf("=== MOL %3d BEFORE: ===\n", i);
-            //print_atoms(&frame.mol[i]);
             kabsch(&frame.mol[i], &refmols[i]);
-            //printf("=== MOL %3d AFTER:  ===\n", i);
-            //print_atoms(&frame.mol[i]);
         }
+
+        /* Write frame with processed coordinates */
+        write_frame(fptemp, &frame, data);
+    }
+
+    /* Make sure we stopped reading because file ended */
+    if (!gzeof(fpdump)) {
+        int err;
+        fprintf(stderr, "error: %s\n", gzerror(fpdump, &err));
+        exit(EXIT_FAILURE);
     }
 
     gzclose(fpdump);
+    gzclose(fptemp);
     free_frame(&frame);
 }

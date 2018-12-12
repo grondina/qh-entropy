@@ -8,6 +8,9 @@ struct data {
     int molsize;
     int *type;
     double temp;
+    double xlo, xhi;
+    double ylo, yhi;
+    double zlo, zhi;
     double xlen;        /* box length in x direction */
     double ylen;        /* box length in y direction */
     double zlen;        /* box length in z direction */
@@ -15,6 +18,7 @@ struct data {
 };
 
 struct molecule {
+    int id;         /* LAMMPS id of the molecule */
     int n;          /* max number of atoms in this molecule */
     int m;          /* number of atoms already read */
     int *atoms;     /* sorted array of n atom indices   */
@@ -35,5 +39,10 @@ extern void print_atoms(struct molecule *mol);
 extern double get_mass(struct data *data, int type);
 
 extern void copy_molecule(struct molecule *m2, struct molecule *m1);
+
+extern struct molecule *init_molecule_array(struct data *data);
+extern void free_molecule_array(struct molecule *array, struct data *data);
+
+
 
 #endif

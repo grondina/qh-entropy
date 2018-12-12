@@ -47,6 +47,12 @@ void init_data(struct data *data)
     data->temp = -1;
     data->mass = NULL;
     data->type = NULL;
+    data->xlo = -1;
+    data->xhi = -1;
+    data->ylo = -1;
+    data->yhi = -1;
+    data->zlo = -1;
+    data->zhi = -1;
     data->xlen = -1;
     data->ylen = -1;
     data->zlen = -1;
@@ -68,6 +74,7 @@ void init_molecule(struct molecule *mol, int n)
 
     mol->m = 0;
     mol->n = n;
+    mol->id = -1;
     mol->gyr = DBL_MAX;
 
     mol->atoms = malloc(mol->n * (sizeof (int)));
@@ -124,4 +131,29 @@ double get_mass(struct data *data, int type)
     }
 
     return -1;
+}
+
+struct molecule *init_molecule_array(struct data *data)
+{
+    struct molecule *array = malloc(data->nmols * sizeof(struct molecule));
+    assert(array != NULL);
+
+    for (int i = 0; i < data->nmols; ++i)
+        init_molecule(&array[i], data->molsize);
+
+    return array;
+}
+
+void free_molecule_array(struct molecule *array, struct data *data)
+{
+    if (array == NULL)
+        return;
+
+    if (data == NULL)
+        return;
+
+    for (int i = 0; i < data->nmols; ++i)
+        free_molecule(&array[i]);
+
+    free(array)
 }

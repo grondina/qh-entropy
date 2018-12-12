@@ -74,18 +74,24 @@ int read_data(char *fndata, struct data *data)
         if (strstr(buf, "xlo")) {
             double lo, hi;
             sscanf(buf, "%lf %lf", &lo, &hi);
+            data->xhi = hi;
+            data->xlo = lo;
             data->xlen = fabs(hi - lo);
             continue;
         }
         if (strstr(buf, "ylo")) {
             double lo, hi;
             sscanf(buf, "%lf %lf", &lo, &hi);
+            data->yhi = hi;
+            data->ylo = lo;
             data->ylen = fabs(hi - lo);
             continue;
         }
         if (strstr(buf, "zlo")) {
             double lo, hi;
             sscanf(buf, "%lf %lf", &lo, &hi);
+            data->zhi = hi;
+            data->zlo = lo;
             data->zlen = fabs(hi - lo);
             continue;
         }
@@ -189,6 +195,7 @@ long int read_frame(gzFile fp, struct frame *frame, struct data *data)
 
         frame->mol[mol].m++;
         frame->mol[mol].atoms[j] = id;
+        frame->mol[mol].id = mol;
 
         R[id][0] = x;
         R[id][1] = y;
@@ -216,6 +223,48 @@ long int read_frame(gzFile fp, struct frame *frame, struct data *data)
     return step;
 }
 
-void write_frame(void)
+void write_frame(gzFile fp, struct frame *frame, struct data *data)
 {
+    sprintf(buf, "ITEM: TIMESTEP\n");
+    gzputs(fp, buf);
+
+    sprintf(buf, "%ld\n", frame->step);
+    gzputs(fp, buf);
+
+    sprintf(buf, "ITEM: NUMBER OF ATOMS\n");
+    gzputs(fp, buf);
+
+    sprintf(buf, "%d\n", data->natoms);
+    gzputs(fp, buf);
+
+    sprintf(buf, "ITEM: BOX BOUNDS pp pp pp\n");
+    gzputs(fp, buf);
+
+    sprintf(buf, "%-16.10lf %-16.10lf\n", data->xlo, data->xhi);
+    gzputs(fp, buf);
+
+    sprintf(buf, "%-16.10lf %-16.10lf\n", data->ylo, data->yhi);
+    gzputs(fp, buf);
+
+    sprintf(buf, "%-16.10lf %-16.10lf\n", data->zlo, data->zhi);
+    gzputs(fp, buf);
+
+    sprintf(buf, "ITEM: ATOMS id type mol xu yu zu\n");
+    gzputs(fp, buf);
+
+    int id, type, mol;
+    double x, y, z;
+    for (int i = 0; i < data->nmols; ++i) {
+        for (int j = 0; j < frame->mol[i].m; ++j) {
+            id   = frame->mol[i].atoms[j] + 1;
+            type = frame->mol[i].types[j];
+            mol  = frame->mol[i].id + 1;
+            x    = frame->mol[i].R[j][0];
+            y    = frame->mol[i].R[j][1];
+            z    = frame->mol[i].R[j][2];
+            sprintf(buf, "%d %d %d %.6f %.6f %.6f\n", id, type, mol, x, y, z);
+            gzputs(fp, buf);
+        }
+    }
+
 }
