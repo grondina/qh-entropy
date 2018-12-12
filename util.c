@@ -198,8 +198,8 @@ void kabsch(struct molecule *mol, struct molecule *ref)
     /* Apply R to P: R*Pt -> Y */
     cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, 3, N, 3, 1.0, pR, 3, pPt, N, 0, pY, N);
 
-    /* Copy rotated coordinates back Y -> P */
-    memcpy(mol->R, pY, (N * 3 * sizeof(double)));
+    /* Do P(final) = trans(Y) */
+    LAPACKE_dge_trans(LAPACK_ROW_MAJOR, 3, N, pY, N, pP, 3);
 
     //printf("P(final) = \n");
     //print_matrix(N, 3, P);
