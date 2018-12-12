@@ -136,7 +136,7 @@ int main(int argc, char **argv)
     parse_pass1(arguments.fndump, &data, refmols);
 
     /* 2nd pass */
-    parse_pass2(arguments.fndump, arguments.fntemp, &data, refmols);
+    parse_pass2(arguments.fndump, arguments.fntemp, &data, refmols, avemols);
 
     /* Clean up */
     free_molecule_array(refmols, &data);

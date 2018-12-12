@@ -81,7 +81,7 @@ void parse_pass1(const char *fndump, struct data *data, struct molecule *refmols
     free_frame(&frame);
 }
 
-void parse_pass2(const char *fndump, const char *fntemp, struct data *data, struct molecule *refmols)
+void parse_pass2(const char *fndump, const char *fntemp, struct data *data, struct molecule *refmols, struct molecule *avemols)
 {
     struct frame frame;
     init_frame(&frame, data);
@@ -103,10 +103,21 @@ void parse_pass2(const char *fndump, const char *fntemp, struct data *data, stru
         exit(EXIT_FAILURE);
     }
 
+    for (int i = 0; i < data->nmols; ++i) {
+        for (int j = 0; j < avemols[i].n; ++j) {
+            avemols[i].R[j][0] = 0;
+            avemols[i].R[j][1] = 0;
+            avemols[i].R[j][2] = 0;
+        }
+    }
+
     long int step;
+    int nframes = 0;
+
     while ((step = read_frame(fpdump, &frame, data)) >= 0) {
 
         printf("(2) TIMESTEP: %ld\n", step);
+        nframes++;
 
         for (int i = 0; i < frame.nmols; ++i) {
 
@@ -115,6 +126,13 @@ void parse_pass2(const char *fndump, const char *fntemp, struct data *data, stru
 
             /* Remove right body rotation */
             kabsch(&frame.mol[i], &refmols[i]);
+
+            /* Update mean positions (cummulative rolling average) */
+            for (int j = 0; j < avemols[i].n; ++j) {
+                avemols[i].R[j][0] += (frame.mol[i].R[j][0] - avemols[i].R[j][0])/((double)nframes);
+                avemols[i].R[j][1] += (frame.mol[i].R[j][1] - avemols[i].R[j][1])/((double)nframes);
+                avemols[i].R[j][2] += (frame.mol[i].R[j][2] - avemols[i].R[j][2])/((double)nframes);
+            }
         }
 
         /* Write frame with processed coordinates */
