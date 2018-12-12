@@ -79,8 +79,8 @@ void kabsch(struct molecule *mol, struct molecule *ref)
     double ( *P)[3] = mol->R;
     double ( *Q)[3] = ref->R;
     double ( *H)[3] = malloc(sizeof(double[3][3]));
-    double ( *U)[3] = malloc(sizeof(double[3][3]));
     double ( *S)[3] = malloc(sizeof(double[3][3]));
+    double ( *U)[3] = malloc(sizeof(double[3][3]));
     double ( *V)[3] = malloc(sizeof(double[3][3]));
     double ( *X)[3] = malloc(sizeof(double[3][3]));
     double ( *M)[3] = malloc(sizeof(double[3][3]));
@@ -105,8 +105,8 @@ void kabsch(struct molecule *mol, struct molecule *ref)
     double *pP  = &( P[0][0]);
     double *pQ  = &( Q[0][0]);
     double *pH  = &( H[0][0]);
-    double *pU  = &( U[0][0]);
     double *pS  = &( S[0][0]);
+    double *pU  = &( U[0][0]);
     double *pV  = &( V[0][0]);
     double *pX  = &( X[0][0]);
     double *pM  = &( M[0][0]);
@@ -116,34 +116,57 @@ void kabsch(struct molecule *mol, struct molecule *ref)
     double *pVt = &(Vt[0][0]);
     double *pUt = &(Ut[0][0]);
 
-    printf("-------------------------------\n");
+    //printf("P = \n");
+    //print_matrix(N, 3, P);
+    //printf("\n");
 
-    printf("P = \n");
-    print_matrix(N, 3, P);
-
-    printf("Q = \n");
-    print_matrix(N, 3, Q);
+    //printf("Q = \n");
+    //print_matrix(N, 3, Q);
+    //printf("\n");
 
     /* Get Pt = trans(P) */
     LAPACKE_dge_trans(LAPACK_ROW_MAJOR, N, 3, pP, 3, pPt, N);
 
-    printf("Pt = \n");
-    print_matrix(3, N, Pt);
+    //printf("Pt = \n");
+    //print_matrix(3, N, Pt);
+    //printf("\n");
 
     /* Get H = Pt*Q */
     cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, 3, 3, N, 1.0, pPt, N, pQ, 3, 0, pH, 3);
-    printf("H = \n");
-    print_matrix(3, 3, H);
+
+    //printf("H = \n");
+    //print_matrix(3, 3, H);
+    //printf("\n");
 
     /* Perform SVD: H = U*S*Vt */
-    double superb[10];
+    double superb[9];
     LAPACKE_dgesvd(LAPACK_ROW_MAJOR, 'A', 'A', 3, 3, pH, 3, pS, pU, 3, pVt, 3, superb);
+
+    //printf("U = \n");
+    //print_matrix(3, 3, U);
+    //printf("\n");
+
+    //printf("S = \n");
+    //print_matrix(3, 3, S);
+    //printf("\n");
+
+    //printf("Vt = \n");
+    //print_matrix(3, 3, Vt);
+    //printf("\n");
 
     /* Get V = trans(Vt) */
     LAPACKE_dge_trans(LAPACK_ROW_MAJOR, 3, 3, pVt, 3, pV, 3);
-
+    
     /* Get Ut = trans(U) */
-    LAPACKE_dge_trans(LAPACK_ROW_MAJOR, 3, 3, pUt, 3, pU, 3);
+    LAPACKE_dge_trans(LAPACK_ROW_MAJOR, 3, 3, pU, 3, pUt, 3);
+
+    //printf("Ut = \n");
+    //print_matrix(3, 3, Ut);
+    //printf("\n");
+
+    //printf("V = \n");
+    //print_matrix(3, 3, V);
+    //printf("\n");
 
     /* Get X = V*Ut */
     cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, 3, 3, 3, 1.0, pV, 3, pUt, 3, 0, pX, 3);
@@ -168,11 +191,19 @@ void kabsch(struct molecule *mol, struct molecule *ref)
     /* Calculate R = X*Ut */
     cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, 3, 3, 3, 1.0, pX, 3, pUt, 3, 0, pR, 3);
 
+    //printf("R = \n");
+    //print_matrix(3, 3, R);
+    //printf("\n");
+
     /* Apply R to P: R*Pt -> Y */
     cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, 3, N, 3, 1.0, pR, 3, pPt, N, 0, pY, N);
 
     /* Copy rotated coordinates back Y -> P */
     memcpy(mol->R, pY, (N * 3 * sizeof(double)));
+
+    //printf("P(final) = \n");
+    //print_matrix(N, 3, P);
+    //printf("\n");
 
     /* Free allocated memory */
     free(H);
