@@ -155,5 +155,5 @@ void free_molecule_array(struct molecule *array, struct data *data)
     for (int i = 0; i < data->nmols; ++i)
         free_molecule(&array[i]);
 
-    free(array)
+    free(array);
 }

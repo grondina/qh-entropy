@@ -3,9 +3,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <zlib.h>
+
 #include "data.h"
 #include "io.h"
-#include "ref.h"
 #include "traj.h"
 
 struct arguments {
@@ -127,7 +127,10 @@ int main(int argc, char **argv)
     data.nmols = data.natoms/data.molsize;
 
     /* Reference */
-    struct molecule *refmols = init_reference(&data);
+    struct molecule *refmols = init_molecule_array(&data);
+
+    /* Average */
+    struct molecule *avemols = init_molecule_array(&data);
 
     /* 1st pass */
     parse_pass1(arguments.fndump, &data, refmols);
@@ -136,7 +139,8 @@ int main(int argc, char **argv)
     parse_pass2(arguments.fndump, arguments.fntemp, &data, refmols);
 
     /* Clean up */
-    free_reference(refmols, &data);
+    free_molecule_array(refmols, &data);
+    free_molecule_array(avemols, &data);
     free_data(&data);
 
     return EXIT_SUCCESS;

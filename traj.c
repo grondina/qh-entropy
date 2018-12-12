@@ -2,9 +2,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <zlib.h>
+
 #include "data.h"
 #include "io.h"
-#include "ref.h"
 #include "traj.h"
 #include "util.h"
 
