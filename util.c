@@ -10,14 +10,18 @@
 #include "data.h"
 #include "util.h"
 
-static void print_matrix(int N, int M, double (*A)[M])
+void print_vector(int N, double *v)
 {
     for (int i = 0; i < N; ++i) {
-        for (int j = 0; j < M; ++j) {
-            char *s = (j == M-1) ? "\n" : "  ";
-            printf("% -8.4f%s", A[i][j], s);
-        }
+        char *s = (i == N-1) ? "\n" : "  ";
+        printf("% -8.4f%s", v[i], s);
     }
+}
+
+void print_matrix(int N, int M, double (*A)[M])
+{
+    for (int i = 0; i < N; ++i)
+        print_vector(M, A[i]);
 }
 
 

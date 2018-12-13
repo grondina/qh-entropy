@@ -7,14 +7,7 @@
 #include "data.h"
 #include "io.h"
 #include "traj.h"
-
-struct arguments {
-    int n;              /* chain length */
-    double temp;        /* temperature */
-    char *fndata;       /* name of data file */
-    char *fndump;       /* name of dump file */
-    char *fntemp;       /* name of temp dump file */
-};
+#include "util.h"
 
 const char *argp_program_version = "0.1";
 const char *argp_program_bug_address = "Gustavo Rondina <rondina@gmail.com>";
@@ -25,6 +18,9 @@ static struct argp_option options[] = {
     { "dump",         'u', "FILE",  0, "LAMMPS dump file",               0 },
     { "temp",         'e', "FILE",  0, "Temporary dump file",            0 },
     { "temperature",  't', "VALUE", 0, "Temperature",                    0 },
+    { "chain-length", 'c', "VALUE", 0, "Length of Lennard-Jones chains", 0 },
+    { "boltzmann",    'k', "VALUE", 0, "Boltzmann constant",             0 },
+    { "planck",       'h', "VALUE", 0, "Planck's constant",              0 },
     { "chain-length", 'c', "VALUE", 0, "Length of Lennard-Jones chains", 0 },
     {  NULL,           0,   NULL,   0,  NULL,                            0 }
 };
@@ -48,6 +44,12 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state)
         break;
     case 'c':
         arguments->n = atoi(arg);
+        break;
+    case 'k':
+        arguments->kB = atof(arg);
+        break;
+    case 'h':
+        arguments->h = atof(arg);
         break;
     case ARGP_KEY_ARG:
         argp_failure(state, 1, 0, "this program takes no arguments");
@@ -88,17 +90,34 @@ static int check_arguments(struct arguments *arguments)
         ret = -1;
     }
 
+    if (arguments->kB < 0) {
+        fprintf(stderr, "Error: Boltzmann's constant must be greater than zero\n");
+        ret = -1;
+    }
+
+    if (arguments->h < 0) {
+        fprintf(stderr, "Error: Planck's constant must be greater than zero\n");
+        ret = -1;
+    }
+
     return ret;
+}
+
+static void init_arguments(struct arguments *arguments)
+{
+    arguments->n = -1;
+    arguments->h = -1;
+    arguments->kB = -1;
+    arguments->temp = -1;
+    arguments->fndata = NULL;
+    arguments->fndump = NULL;
+    arguments->fntemp = NULL;
 }
 
 int main(int argc, char **argv)
 {
     struct arguments arguments;
-    arguments.n = -1;
-    arguments.temp = -1;
-    arguments.fndata = NULL;
-    arguments.fndump = NULL;
-    arguments.fntemp = NULL;
+    init_arguments(&arguments);
 
     struct argp argp = { options, parse_opt, NULL, doc, NULL, NULL, NULL };
     argp_parse(&argp, argc, argv, ARGP_IN_ORDER, 0, &arguments);
@@ -138,7 +157,24 @@ int main(int argc, char **argv)
     /* 2nd pass */
     parse_pass2(arguments.fndump, arguments.fntemp, &data, refmols, avemols);
 
+    /* 3nd pass */
+    int n = 3 * data.molsize;
+    double (*sigma)[n][n] = malloc(sizeof(double[data.nmols][n][n]));;
+    double (    *M)[n][n] = malloc(sizeof(double[data.nmols][n][n]));
+    assert(sigma != NULL);
+    assert(    M != NULL);
+    parse_pass3(arguments.fntemp, &data, avemols, n, sigma, M);
+
+    /* Calculate entropy */
+    double *S = entropy(n, &data, &arguments, sigma, M);
+    
+    /* Print & save entropy */
+    write_entropy(&data, S);
+
     /* Clean up */
+    free(sigma);
+    free(M);
+    free(S);
     free_molecule_array(refmols, &data);
     free_molecule_array(avemols, &data);
     free_data(&data);

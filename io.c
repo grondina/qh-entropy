@@ -268,3 +268,10 @@ void write_frame(gzFile fp, struct frame *frame, struct data *data)
     }
 
 }
+
+void write_entropy(struct data *data, double *S)
+{
+    for (int i = 0; i < data->nmols; ++i) {
+        printf("%20.10f\n", S[i]);
+    }
+}
