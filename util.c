@@ -212,6 +212,7 @@ void kabsch(struct molecule *mol, struct molecule *ref)
     /* Free allocated memory */
     free(H);
     free(S);
+    free(U);
     free(V);
     free(X);
     free(M);

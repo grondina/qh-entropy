@@ -217,6 +217,7 @@ void parse_pass3(const char *fndump, struct data *data, struct molecule *avemols
     }
 
     gzclose(fpdump);
+    free_frame(&frame);
 }
 
 double *entropy(int n, struct data *data, struct arguments *arguments, double (*sigma)[n][n], double (*M)[n][n])
