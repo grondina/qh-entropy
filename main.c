@@ -22,6 +22,7 @@ static struct argp_option options[] = {
     { "boltzmann",    'k', "VALUE", 0, "Boltzmann constant",             0 },
     { "planck",       'h', "VALUE", 0, "Planck's constant",              0 },
     { "chain-length", 'c', "VALUE", 0, "Length of Lennard-Jones chains", 0 },
+    { "out",          'o', "FILE",  0, "File to write final entropies",  0 },
     {  NULL,           0,   NULL,   0,  NULL,                            0 }
 };
 
@@ -38,6 +39,9 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state)
         break;
     case 'e':
         arguments->fntemp = arg;
+        break;
+    case 'o':
+        arguments->fnsave = arg;
         break;
     case 't':
         arguments->temp = atof(arg);
@@ -80,6 +84,11 @@ static int check_arguments(struct arguments *arguments)
         ret = -1;
     }
 
+    if (arguments->fnsave == NULL) {
+        fprintf(stderr, "Error: output file was not specified, see --help\n");
+        ret = -1;
+    }
+
     if (arguments->temp <= 0) {
         fprintf(stderr, "Error: temperature must be greater than zero\n");
         ret = -1;
@@ -112,6 +121,7 @@ static void init_arguments(struct arguments *arguments)
     arguments->fndata = NULL;
     arguments->fndump = NULL;
     arguments->fntemp = NULL;
+    arguments->fnsave = NULL;
 }
 
 int main(int argc, char **argv)
@@ -169,7 +179,7 @@ int main(int argc, char **argv)
     double *S = entropy(n, &data, &arguments, sigma, M);
     
     /* Print & save entropy */
-    write_entropy(&data, S);
+    write_entropy(arguments.fnsave, &data, S);
 
     /* Clean up */
     free(sigma);

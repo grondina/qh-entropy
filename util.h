@@ -15,6 +15,7 @@ struct arguments {
     char *fndata;       /* name of data file */
     char *fndump;       /* name of dump file */
     char *fntemp;       /* name of temp dump file */
+    char *fnsave;       /* name of output file */
 };
 
 extern int cmpint(const void *p1, const void *p2);

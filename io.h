@@ -7,6 +7,6 @@
 extern int read_data(char *fndata, struct data *data);
 extern long int read_frame(gzFile fp, struct frame *frame, struct data *data);
 extern void write_frame(gzFile fp, struct frame *frame, struct data *data);
-extern void write_entropy(struct data *data, double *S);
+extern void write_entropy(char *fn, struct data *data, double *S);
 
 #endif

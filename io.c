@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <zlib.h>
+
 #include "data.h"
 #include "io.h"
 #include "traj.h"
@@ -269,9 +270,21 @@ void write_frame(gzFile fp, struct frame *frame, struct data *data)
 
 }
 
-void write_entropy(struct data *data, double *S)
+void write_entropy(char *fn, struct data *data, double *S)
 {
+    FILE *fp = fopen(fn, "w");
+    if (fp == NULL)
+        fprintf(stderr, "error: %s\n", strerror(errno));
+
+    printf("writing quasi-harmonic entropy\n");
+
     for (int i = 0; i < data->nmols; ++i) {
-        printf("%20.10f\n", S[i]);
+        if (fp)
+            fprintf(fp, "%20.10f\n", S[i]);
+        else
+            printf("%20.10f\n", S[i]);
     }
+
+    if (fp)
+        fclose(fp);
 }
