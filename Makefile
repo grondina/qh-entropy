@@ -1,8 +1,8 @@
 CC=gcc
-CFLAGS=-std=c99 -Wall -Wextra -O3
+CFLAGS=-std=c99 -Wall -Wextra -O3 -fopenmp
 LIBS=-lm -lz -lcblas -llapacke
-DEPS = data.h io.h traj.h util.h
-OBJS = data.o main.o io.o traj.o util.o
+DEPS = data.h io.h par.h traj.h util.h
+OBJS = data.o main.o io.o par.o traj.o util.o
 EXEC = qhe
 
 %.o: %.c $(DEPS)

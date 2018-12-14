@@ -1,14 +1,17 @@
 #include <assert.h>
 #include <cblas.h>
+#include <float.h>
 #include <lapacke.h>
 #include <lapacke_utils.h>
 #include <math.h>
+#include <omp.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <zlib.h>
 
 #include "data.h"
 #include "io.h"
+#include "par.h"
 #include "traj.h"
 #include "util.h"
 
@@ -42,7 +45,7 @@ void free_frame(struct frame *frame)
     free(frame->mol);
 }
 
-void parse_pass1(const char *fndump, struct data *data, struct molecule *refmols)
+void parse_pass1(const char *fndump, struct data *data, struct molecule *refmols, int nthreads)
 {
     struct frame frame;
     init_frame(&frame, data);
@@ -56,33 +59,63 @@ void parse_pass1(const char *fndump, struct data *data, struct molecule *refmols
             exit(EXIT_FAILURE);
     }
 
-    long int step;
-    while ((step = read_frame(fpdump, &frame, data)) >= 0) {
+    long int *steps = malloc(nthreads * sizeof(long int));
+    assert(steps != NULL);
 
-        printf("(1) TIMESTEP: %ld\n", step);
+    struct thread *threads = init_threads(nthreads, data);
 
-        /* Obtaining reference based on RoG (smallest) */
-        for (int i = 0; i < frame.nmols; ++i) {
-            frame.mol[i].gyr = gyration(&frame.mol[i]);
-            if (frame.mol[i].gyr < refmols[i].gyr)
-                copy_molecule(&refmols[i], &frame.mol[i]);
+    struct molecule **refmols_t = malloc(nthreads * sizeof(struct molecule *));
+    assert(refmols_t != NULL);
+    for (int i = 0; i < nthreads; ++i)
+        refmols_t[i] = init_molecule_array(data);
+
+    while (read_frames(fpdump, data, threads, nthreads, steps) >= 0) {
+        //fprintf(stderr, "----\n");
+        #pragma omp parallel default(none) shared(steps, threads, refmols_t, stderr) num_threads(nthreads)
+        {
+            int tid = omp_get_thread_num();
+            if (steps[tid] >= 0) {
+                //fprintf(stderr, "hello from thread %d\n", tid);
+                struct frame *frame = threads[tid].frame;
+                for (int i = 0; i < frame->nmols; ++i) {
+                    frame->mol[i].gyr = gyration(&frame->mol[i]);
+                    if (frame->mol[i].gyr < refmols_t[tid][i].gyr)
+                        copy_molecule(&refmols_t[tid][i], &frame->mol[i]);
+                }
+            }
         }
     }
 
-    /* Make sure we stopped reading because file ended */
     if (!gzeof(fpdump)) {
         int err;
         fprintf(stderr, "error: %s\n", gzerror(fpdump, &err));
         exit(EXIT_FAILURE);
     }
+    gzclose(fpdump);
 
+    /* Take the reference with lowest RoG */
+    for (int i = 0; i < data->nmols; ++i) {
+        int idxlow = -1;
+        double gyrlow = DBL_MAX;
+        for (int t = 0; t < nthreads; ++t) {
+            if (refmols_t[t][i].gyr < gyrlow) {
+                idxlow = t;
+                gyrlow = refmols_t[t][i].gyr;
+            }
+        }
+        assert(idxlow >= 0);
+        copy_molecule(&refmols[i], &refmols_t[idxlow][i]);
+    }
 
     /* Remove COM of reference */
     for (int i = 0; i < frame.nmols; ++i)
         remove_com(&refmols[i]);
 
-    gzclose(fpdump);
-    free_frame(&frame);
+    free(steps);
+    free_threads(threads, nthreads);
+    for (int i = 0; i < nthreads; ++i)
+        free_molecule_array(refmols_t[i], data);
+    free(refmols_t);
 }
 
 void parse_pass2(const char *fndump, const char *fntemp, struct data *data, struct molecule *refmols, struct molecule *avemols)

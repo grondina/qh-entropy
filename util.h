@@ -12,6 +12,7 @@ struct arguments {
     double kB;          /* Boltzmann constant */
     double h;           /* Planck's constant */
     double temp;        /* temperature */
+    int nthreads;       /* number of OpenMP threads */
     char *fndata;       /* name of data file */
     char *fndump;       /* name of dump file */
     char *fntemp;       /* name of temp dump file */
