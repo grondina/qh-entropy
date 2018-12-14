@@ -175,7 +175,7 @@ int main(int argc, char **argv)
     parse_pass1(arguments.fndump, &data, refmols, arguments.nthreads);
 
     /* 2nd pass */
-    parse_pass2(arguments.fndump, arguments.fntemp, &data, refmols, avemols);
+    parse_pass2(arguments.fndump, arguments.fntemp, &data, refmols, avemols, arguments.nthreads);
 
     /* 3nd pass */
     int n = 3 * data.molsize;

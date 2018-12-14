@@ -116,11 +116,12 @@ int read_frames(gzFile fp, struct data *data, struct thread *threads, int nframe
     for (int i = 0; i < nframes; ++i)
         ret[i] = read_frame(fp, threads[i].frame, data);
 
+    int cnt = 0;
     for (int i = 0; i < nframes; ++i)
         if (ret[i] >= 0)
-            return 1;
+            ++cnt;
 
-    return -1;
+    return cnt;
 }
 
 long int read_frame(gzFile fp, struct frame *frame, struct data *data)

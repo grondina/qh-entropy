@@ -47,9 +47,6 @@ void free_frame(struct frame *frame)
 
 void parse_pass1(const char *fndump, struct data *data, struct molecule *refmols, int nthreads)
 {
-    struct frame frame;
-    init_frame(&frame, data);
-
     assert(fndump != NULL);
     gzFile fpdump = gzopen(fndump, "r");
     assert(fpdump != NULL);
@@ -69,8 +66,11 @@ void parse_pass1(const char *fndump, struct data *data, struct molecule *refmols
     for (int i = 0; i < nthreads; ++i)
         refmols_t[i] = init_molecule_array(data);
 
-    while (read_frames(fpdump, data, threads, nthreads, steps) >= 0) {
-        //fprintf(stderr, "----\n");
+    while (read_frames(fpdump, data, threads, nthreads, steps) > 0) {
+        printf("(1) TIMESTEPS: ");
+        for (int t = 0; t < nthreads; ++t)
+            if (steps[t] >= 0) printf("%10ld ", steps[t]);
+        printf("\n");
         #pragma omp parallel default(none) shared(steps, threads, refmols_t, stderr) num_threads(nthreads)
         {
             int tid = omp_get_thread_num();
@@ -108,7 +108,7 @@ void parse_pass1(const char *fndump, struct data *data, struct molecule *refmols
     }
 
     /* Remove COM of reference */
-    for (int i = 0; i < frame.nmols; ++i)
+    for (int i = 0; i < data->nmols; ++i)
         remove_com(&refmols[i]);
 
     free(steps);
@@ -118,20 +118,18 @@ void parse_pass1(const char *fndump, struct data *data, struct molecule *refmols
     free(refmols_t);
 }
 
-void parse_pass2(const char *fndump, const char *fntemp, struct data *data, struct molecule *refmols, struct molecule *avemols)
+void parse_pass2(const char *fndump, const char *fntemp, struct data *data, struct molecule *refmols, struct molecule *avemols, int nthreads)
 {
-    struct frame frame;
-    init_frame(&frame, data);
-
     assert(fndump != NULL);
     gzFile fpdump = gzopen(fndump, "r");
     assert(fpdump != NULL);
 
     if (gzbuffer(fpdump, 0xF0000) == -1) {
         fprintf(stderr, "error: gzbuffer\n");
-        exit(EXIT_FAILURE);
+            exit(EXIT_FAILURE);
     }
 
+    assert(fntemp != NULL);
     gzFile fptemp = gzopen(fntemp, "w");
     assert(fptemp != NULL);
 
@@ -140,6 +138,66 @@ void parse_pass2(const char *fndump, const char *fntemp, struct data *data, stru
         exit(EXIT_FAILURE);
     }
 
+
+    long int *steps = malloc(nthreads * sizeof(long int));
+    assert(steps != NULL);
+
+    struct thread *threads = init_threads(nthreads, data);
+
+    struct molecule **avemols_t = malloc(nthreads * sizeof(struct molecule *));
+    assert(avemols_t != NULL);
+    for (int i = 0; i < nthreads; ++i)
+        avemols_t[i] = init_molecule_array(data);
+
+    for (int t = 0; t < nthreads; ++t) {
+        for (int i = 0; i < data->nmols; ++i) {
+            for (int j = 0; j < avemols[i].n; ++j) {
+                avemols_t[t][i].R[j][0] = 0;
+                avemols_t[t][i].R[j][1] = 0;
+                avemols_t[t][i].R[j][2] = 0;
+            }
+        }
+    }
+
+    int framecnt;
+    int nframes = 0;
+
+    while ((framecnt = read_frames(fpdump, data, threads, nthreads, steps)) > 0) {
+        nframes += framecnt;
+        printf("(2) TIMESTEPS: ");
+        for (int t = 0; t < nthreads; ++t)
+            if (steps[t] >= 0) printf("%10ld ", steps[t]);
+        printf("\n");
+        #pragma omp parallel default(none) shared(steps, threads, avemols_t, refmols, stderr) num_threads(nthreads)
+        {
+            int tid = omp_get_thread_num();
+            if (steps[tid] >= 0) {
+                struct frame *frame = threads[tid].frame;
+                for (int i = 0; i < frame->nmols; ++i) {
+                    remove_com(&frame->mol[i]);
+                    kabsch(&frame->mol[i], &refmols[i]);
+                    for (int j = 0; j < avemols_t[tid][i].n; ++j) {
+                        avemols_t[tid][i].R[j][0] += frame->mol[i].R[j][0];
+                        avemols_t[tid][i].R[j][1] += frame->mol[i].R[j][1];
+                        avemols_t[tid][i].R[j][2] += frame->mol[i].R[j][2];
+                    }
+                }
+            }
+        }
+        for (int t = 0; t < nthreads; ++t)
+            if (steps[t] >= 0) 
+                write_frame(fptemp, threads[t].frame, data);
+    }
+
+    if (!gzeof(fpdump)) {
+        int err;
+        fprintf(stderr, "error: %s\n", gzerror(fpdump, &err));
+        exit(EXIT_FAILURE);
+    }
+    gzclose(fpdump);
+    gzclose(fptemp);
+
+    /* Reduce sum of coordinates and obtain average */
     for (int i = 0; i < data->nmols; ++i) {
         for (int j = 0; j < avemols[i].n; ++j) {
             avemols[i].R[j][0] = 0;
@@ -147,45 +205,28 @@ void parse_pass2(const char *fndump, const char *fntemp, struct data *data, stru
             avemols[i].R[j][2] = 0;
         }
     }
-
-    long int step;
-    int nframes = 0;
-
-    while ((step = read_frame(fpdump, &frame, data)) >= 0) {
-
-        printf("(2) TIMESTEP: %ld\n", step);
-        nframes++;
-
-        for (int i = 0; i < frame.nmols; ++i) {
-
-            /* Remove center of mass */
-            remove_com(&frame.mol[i]);
-
-            /* Remove right body rotation */
-            kabsch(&frame.mol[i], &refmols[i]);
-
-            /* Update mean positions (cummulative rolling average) */
+    for (int i = 0; i < data->nmols; ++i) {
+        for (int t = 0; t < nthreads; ++t) {
             for (int j = 0; j < avemols[i].n; ++j) {
-                avemols[i].R[j][0] += (frame.mol[i].R[j][0] - avemols[i].R[j][0])/((double)nframes);
-                avemols[i].R[j][1] += (frame.mol[i].R[j][1] - avemols[i].R[j][1])/((double)nframes);
-                avemols[i].R[j][2] += (frame.mol[i].R[j][2] - avemols[i].R[j][2])/((double)nframes);
+                avemols[i].R[j][0] += avemols_t[t][i].R[j][0];
+                avemols[i].R[j][1] += avemols_t[t][i].R[j][1];
+                avemols[i].R[j][2] += avemols_t[t][i].R[j][2];
             }
         }
-
-        /* Write frame with processed coordinates */
-        write_frame(fptemp, &frame, data);
+    }
+    for (int i = 0; i < data->nmols; ++i) {
+        for (int j = 0; j < avemols[i].n; ++j) {
+            avemols[i].R[j][0] /= (double)nframes;
+            avemols[i].R[j][1] /= (double)nframes;
+            avemols[i].R[j][2] /= (double)nframes;
+        }
     }
 
-    /* Make sure we stopped reading because file ended */
-    if (!gzeof(fpdump)) {
-        int err;
-        fprintf(stderr, "error: %s\n", gzerror(fpdump, &err));
-        exit(EXIT_FAILURE);
-    }
-
-    gzclose(fpdump);
-    gzclose(fptemp);
-    free_frame(&frame);
+    free(steps);
+    free_threads(threads, nthreads);
+    for (int i = 0; i < nthreads; ++i)
+        free_molecule_array(avemols_t[i], data);
+    free(avemols_t);
 }
 
 void parse_pass3(const char *fndump, struct data *data, struct molecule *avemols, int n, double (*sigma)[n][n], double (*M)[n][n])
