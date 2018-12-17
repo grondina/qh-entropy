@@ -23,6 +23,7 @@ static struct argp_option options[] = {
     { "planck",       'h', "VALUE", 0, "Planck's constant",              0 },
     { "chain-length", 'c', "VALUE", 0, "Length of Lennard-Jones chains", 0 },
     { "out",          'o', "FILE",  0, "File to write final entropies",  0 },
+    { "buffer",       'b', "VALUE", 0, "Number of frames to buffer",     0 },
     {  NULL,           0,   NULL,   0,  NULL,                            0 }
 };
 
@@ -54,6 +55,9 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state)
         break;
     case 'h':
         arguments->h = atof(arg);
+        break;
+    case 'b':
+        arguments->buflen = atoi(arg);
         break;
     case ARGP_KEY_ARG:
         argp_failure(state, 1, 0, "this program takes no arguments");
@@ -118,6 +122,7 @@ static void init_arguments(struct arguments *arguments)
     arguments->h = -1;
     arguments->kB = -1;
     arguments->temp = -1;
+    arguments->buflen = 1;
     arguments->fndata = NULL;
     arguments->fndump = NULL;
     arguments->fntemp = NULL;
@@ -156,7 +161,7 @@ int main(int argc, char **argv)
     data.nmols = data.natoms/data.molsize;
 
     /* Initialize IO buffers */
-    init_buf(&data);
+    init_buf(&data, arguments.buflen);
 
     /* Reference */
     struct molecule *refmols = init_molecule_array(&data);

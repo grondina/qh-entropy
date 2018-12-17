@@ -9,6 +9,7 @@
 
 struct arguments {
     int n;              /* chain length */
+    int buflen;         /* number of frames to buffer */
     double kB;          /* Boltzmann constant */
     double h;           /* Planck's constant */
     double temp;        /* temperature */

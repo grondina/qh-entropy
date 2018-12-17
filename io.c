@@ -13,14 +13,19 @@
 
 static char buf[BUFSIZ];
 static double *bufd;
+static double *bufp;
 static int bufdlen;
+static int fbuflen;
 
-void init_buf(struct data *data)
+void init_buf(struct data *data, int buflen)
 {
     //id type mol mass x y z
+    fbuflen = buflen;
+    printf("frame buffer length = %d\n", fbuflen);
     bufdlen = 1 + (data->nmols * ((6 * data->molsize) + 1));
-    bufd = malloc(bufdlen * sizeof(double));
+    bufd = malloc(fbuflen * bufdlen * sizeof(double));
     assert(bufd != NULL);
+    bufp = bufd;
 }
 
 void free_buf(void)
@@ -273,27 +278,35 @@ long int read_frame_bin(gzFile fp, struct frame *frame, struct data *data)
 
 void write_frame_bin(gzFile fp, struct frame *frame, struct data *data)
 {
-    double *b = bufd;
+    static int fbufcur = 0;
 
-    /* Build buffer */
-    *b++ = (double)frame->step;
+    assert(fbufcur < fbuflen);
+
+    /* Add frame to buffer */
+    *bufp++ = (double)frame->step;
     for (int i = 0; i < data->nmols; ++i) {
         //mol id type mass x y z
-        *b++ = (double)frame->mol[i].id;
+        *bufp++ = (double)frame->mol[i].id;
         for (int j = 0; j < frame->mol[i].m; ++j) {
-            *b++ = (double)frame->mol[i].atoms[j];
-            *b++ = (double)frame->mol[i].types[j];
-            *b++ = frame->mol[i].mass[j];
-            *b++ = frame->mol[i].R[j][0];
-            *b++ = frame->mol[i].R[j][1];
-            *b++ = frame->mol[i].R[j][2];
+            *bufp++ = (double)frame->mol[i].atoms[j];
+            *bufp++ = (double)frame->mol[i].types[j];
+            *bufp++ = frame->mol[i].mass[j];
+            *bufp++ = frame->mol[i].R[j][0];
+            *bufp++ = frame->mol[i].R[j][1];
+            *bufp++ = frame->mol[i].R[j][2];
         }
     }
-    int len = b - bufd;
-    assert(len == bufdlen);
 
-    /* Write it */
-    gzwrite(fp, bufd, len * sizeof(double));
+    fbufcur++;
+    if (fbufcur == fbuflen) {
+        /* write buffer */
+        gzwrite(fp, bufd, fbuflen * bufdlen * sizeof(double));
+        int len = bufp - bufd;
+        assert(len == (fbuflen * bufdlen));
+        /* reset it */
+        fbufcur = 0;
+        bufp = bufd;
+    }
 }
 
 void write_frame(gzFile fp, struct frame *frame, struct data *data)
