@@ -12,6 +12,21 @@
 #include "util.h"
 
 static char buf[BUFSIZ];
+static double *bufd;
+static int bufdlen;
+
+void init_buf(struct data *data)
+{
+    //id type mol mass x y z
+    bufdlen = 1 + (data->nmols * ((6 * data->molsize) + 1));
+    bufd = malloc(bufdlen * sizeof(double));
+    assert(bufd != NULL);
+}
+
+void free_buf(void)
+{
+    free(bufd);
+}
 
 int read_data(char *fndata, struct data *data)
 {
@@ -222,6 +237,63 @@ long int read_frame(gzFile fp, struct frame *frame, struct data *data)
     free(types);
 
     return step;
+}
+
+long int read_frame_bin(gzFile fp, struct frame *frame, struct data *data)
+{
+    /* Read from file */
+    int nread = gzread(fp, bufd, bufdlen * sizeof(double));
+    if (nread < bufdlen) {
+        if (gzeof(fp))
+            return -1;
+        else
+            exit(EXIT_FAILURE);
+    }
+
+    /* Unpack buffer */
+    double *b = bufd;
+    long int step = (long int)(*b++);
+    frame->step = step;
+    for (int i = 0; i < data->nmols; ++i) {
+        frame->mol[i].id = (int)(*b++);
+        frame->mol[i].m = data->molsize;
+        frame->mol[i].n = data->molsize;
+        for (int j = 0; j < frame->mol[i].m; ++j) {
+            frame->mol[i].atoms[j] = (int)(*b++);
+            frame->mol[i].types[j] = (int)(*b++);
+            frame->mol[i].mass[j] = *b++;
+            frame->mol[i].R[j][0] = *b++;
+            frame->mol[i].R[j][1] = *b++;
+            frame->mol[i].R[j][2] = *b++;
+        }
+    }
+
+    return step;
+}
+
+void write_frame_bin(gzFile fp, struct frame *frame, struct data *data)
+{
+    double *b = bufd;
+
+    /* Build buffer */
+    *b++ = (double)frame->step;
+    for (int i = 0; i < data->nmols; ++i) {
+        //mol id type mass x y z
+        *b++ = (double)frame->mol[i].id;
+        for (int j = 0; j < frame->mol[i].m; ++j) {
+            *b++ = (double)frame->mol[i].atoms[j];
+            *b++ = (double)frame->mol[i].types[j];
+            *b++ = frame->mol[i].mass[j];
+            *b++ = frame->mol[i].R[j][0];
+            *b++ = frame->mol[i].R[j][1];
+            *b++ = frame->mol[i].R[j][2];
+        }
+    }
+    int len = b - bufd;
+    assert(len == bufdlen);
+
+    /* Write it */
+    gzwrite(fp, bufd, len * sizeof(double));
 }
 
 void write_frame(gzFile fp, struct frame *frame, struct data *data)
