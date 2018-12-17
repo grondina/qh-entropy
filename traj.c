@@ -140,7 +140,7 @@ void parse_pass2(const char *fndump, const char *fntemp, struct data *data, stru
         }
 
         /* Write frame with processed coordinates */
-        write_frame(fptemp, &frame, data);
+        write_frame_bin(fptemp, &frame, data);
     }
 
     /* Make sure we stopped reading because file ended */
@@ -181,7 +181,7 @@ void parse_pass3(const char *fndump, struct data *data, struct molecule *avemols
     long int step;
     int nframes = 0;
 
-    while ((step = read_frame(fpdump, &frame, data)) >= 0) {
+    while ((step = read_frame_bin(fpdump, &frame, data)) >= 0) {
 
         printf("(3) TIMESTEP: %ld\n", step);
         nframes++;

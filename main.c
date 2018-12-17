@@ -155,6 +155,9 @@ int main(int argc, char **argv)
     data.molsize = arguments.n;
     data.nmols = data.natoms/data.molsize;
 
+    /* Initialize IO buffers */
+    init_buf(&data);
+
     /* Reference */
     struct molecule *refmols = init_molecule_array(&data);
 
@@ -182,6 +185,7 @@ int main(int argc, char **argv)
     write_entropy(arguments.fnsave, &data, S);
 
     /* Clean up */
+    free_buf();
     free(sigma);
     free(M);
     free(S);
