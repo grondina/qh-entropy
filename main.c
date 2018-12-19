@@ -21,7 +21,6 @@ static struct argp_option options[] = {
     { "chain-length", 'c', "VALUE", 0, "Length of Lennard-Jones chains", 0 },
     { "boltzmann",    'k', "VALUE", 0, "Boltzmann constant",             0 },
     { "planck",       'h', "VALUE", 0, "Planck's constant",              0 },
-    { "chain-length", 'c', "VALUE", 0, "Length of Lennard-Jones chains", 0 },
     { "out",          'o', "FILE",  0, "File to write final entropies",  0 },
     {  NULL,           0,   NULL,   0,  NULL,                            0 }
 };
