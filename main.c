@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <zlib.h>
 
+/* Local includes */
 #include "data.h"
 #include "io.h"
 #include "traj.h"
